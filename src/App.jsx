@@ -1,7 +1,7 @@
 import React from "react";
 import { Routes, Route } from "react-router-dom";
 import LandingPage from "./pages/LandingPage";
-import SignUp from "./pages/Sign-up"; // import matches the file name
+import SignUp from "./pages/signin/Signup"; // import matches the file name
 import Dashboard from "./pages/Dashboard";
 
 export default function App() {
