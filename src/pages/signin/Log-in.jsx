@@ -1,7 +1,7 @@
 // src/pages/Login.jsx
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-
+import Cookies from 'js-cookie'
 export default function Login() {
   const navigate = useNavigate();
   const [loginData, setLoginData] = useState({ email: "", password: "" });
@@ -10,10 +10,11 @@ export default function Login() {
     setLoginData({ ...loginData, [e.target.name]: e.target.value });
   };
 
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const res = await fetch("https://your-backend-api.com/api/users/login", {
+      const res = await fetch("https://car4wash-back.vercel.app/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(loginData),
@@ -26,7 +27,7 @@ export default function Login() {
         return;
       }
 
-      localStorage.setItem("token", data.token); // save JWT
+      Cookies.set('token', data.token); // save JWT
       navigate("/dashboard"); // redirect to dashboard
     } catch (err) {
       console.error(err);

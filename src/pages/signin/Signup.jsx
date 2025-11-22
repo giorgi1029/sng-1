@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import BusinessForm from "./BusinessForm";
-
+import Cookie from 'js-cookie'
 export default function SignUp() {
   const [activeTab, setActiveTab] = useState("user");
   const navigate = useNavigate(); // for redirection
@@ -36,8 +36,7 @@ export default function SignUp() {
         return;
       }
 
-      // Optionally store JWT in localStorage
-      localStorage.setItem("token", data.token);
+      Cookies.set('token', data.token)
 
       // Redirect to dashboard
       navigate("/dashboard");
@@ -114,7 +113,7 @@ export default function SignUp() {
                   href="https://car4wash-back.vercel.app/api/auth/google"
                   className="flex items-center gap-2 text-blue-600 font-semibold hover:underline"
                 >
-                  <img src="/src/assets/google.png" alt="Google" className="w-6 h-6 pointer-events-none select-none" />
+                  <img src="https://www.freepnglogos.com/uploads/google-logo-png/google-logo-png-webinar-optimizing-for-success-google-business-webinar-13.png" alt="Google" className="w-6 h-6 pointer-events-none select-none" />
                   Google
                 </a>
               </div>
