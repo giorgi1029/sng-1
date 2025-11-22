@@ -3,6 +3,7 @@ import { Routes, Route } from "react-router-dom";
 import LandingPage from "./pages/LandingPage";
 import SignUp from "./pages/signin/Signup"; // import matches the file name
 import Dashboard from "./pages/Dashboard";
+import Login from "./pages/signin/Log-in";
 
 export default function App() {
   return (
@@ -10,6 +11,7 @@ export default function App() {
       <Route path="/" element={<LandingPage />} />
       <Route path="/signup" element={<SignUp />} /> {/* route URL */}
       <Route path="/dashboard" element={<Dashboard />} />
+      <Route path="/login" element={<Login />}/>
     </Routes>
   );
 }
