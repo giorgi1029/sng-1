@@ -181,7 +181,7 @@ const handleSubmit = async (e) => {
             className="flex items-center gap-2 text-blue-600 font-semibold hover:underline"
           >
             <img
-              src="/src/assets/google.png"
+              src="https://www.freepnglogos.com/uploads/google-logo-png/google-logo-png-webinar-optimizing-for-success-google-business-webinar-13.png"
               alt="Google"
               className="w-6 h-6 pointer-events-none select-none"
             />

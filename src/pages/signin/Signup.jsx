@@ -1,19 +1,22 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import BusinessForm from "./BusinessForm";
-import Cookie from 'js-cookie'
+import Cookies from "js-cookie";
+
 export default function SignUp() {
   const [activeTab, setActiveTab] = useState("user");
-  const navigate = useNavigate(); // for redirection
+  const navigate = useNavigate();
+
+
+  
+
+  const [errorMessage, setErrorMessage] = useState("");
 
   const [userData, setUserData] = useState({
     name: "",
     email: "",
     phone: "",
     password: "",
-    carMake: "",
-    carModel: "",
-    plateNumber: "",
   });
 
   const handleUserInputChange = (e) => {
@@ -22,37 +25,50 @@ export default function SignUp() {
 
   const handleUserSubmit = async (e) => {
     e.preventDefault();
+    setErrorMessage(""); // clear previous error
+
     try {
-      const res = await fetch("https://car4wash-back.vercel.app/api/auth/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(userData),
-      });
+      const res = await fetch(
+        "https://car4wash-back.vercel.app/api/auth/register",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(userData),
+        }
+      );
 
       const data = await res.json();
 
       if (!res.ok) {
-        alert(data.message || "Signup failed");
+        if (data.message?.includes("exists")) {
+          setErrorMessage(
+            "Email already exists — if you have an account, please log in."
+          );
+        } else {
+          setErrorMessage(data.message || "Signup failed");
+        }
         return;
       }
 
-      Cookies.set('token', data.token)
-
-      // Redirect to dashboard
+      
       navigate("/dashboard");
     } catch (error) {
       console.error(error);
-      alert("Something went wrong. Try again.");
+      setErrorMessage("Something went wrong. Try again.");
     }
   };
 
   return (
     <div className="min-h-screen relative flex flex-col items-center justify-center p-6 bg-gradient-to-br from-white via-[#cae3ff] to-[#89bbf4] overflow-hidden">
-      <div className='absolute top-[-120px] left-[-100px] w-[350px] h-[350px] rounded-full bg-blue-300/30 blur-[120px]'></div>
-      <div className='absolute bottom-[-150px] right-[-80px] w-[380px] h-[380px] rounded-full bg-blue-500/30 blur-[140px]'></div>
+      <div className="absolute top-[-120px] left-[-100px] w-[350px] h-[350px] rounded-full bg-blue-300/30 blur-[120px]"></div>
+      <div className="absolute bottom-[-150px] right-[-80px] w-[380px] h-[380px] rounded-full bg-blue-500/30 blur-[140px]"></div>
 
-      <h1 className="text-5xl font-extrabold text-gray-900 drop-shadow mb-2">Car4wash</h1>
-      <p className="text-gray-700 text-lg mb-6">Create your account and get started</p>
+      <h1 className="text-5xl font-extrabold text-gray-900 drop-shadow mb-2">
+        Car4wash
+      </h1>
+      <p className="text-gray-700 text-lg mb-6">
+        Create your account and get started
+      </p>
 
       {/* Tabs */}
       <div className="flex gap-4 mb-6">
@@ -82,27 +98,69 @@ export default function SignUp() {
       <div className="w-full max-w-md backdrop-blur-xl bg-white/60 border border-white/50 rounded-2xl shadow-xl p-8">
         {activeTab === "user" ? (
           <form className="space-y-4" onSubmit={handleUserSubmit}>
+            
+            {/* Error message */}
+            {errorMessage && (
+              <div className="bg-red-100 border border-red-300 text-red-700 px-3 py-2 rounded-lg text-sm mb-3">
+                {errorMessage}
+              </div>
+            )}
+
             {/* User inputs */}
-            <input type="text" name="name" placeholder="Full Name" value={userData.name} onChange={handleUserInputChange} className="w-full p-3 border border-gray-300 rounded-xl bg-white/90 focus:ring-2 focus:ring-blue-400 outline-none transition" required />
-            <input type="email" name="email" placeholder="Email Address" value={userData.email} onChange={handleUserInputChange} className="w-full p-3 border border-gray-300 rounded-xl bg-white/90 focus:ring-2 focus:ring-blue-400 outline-none transition" required />
-            <input type="tel" name="phone" placeholder="Phone Number (optional)" value={userData.phone} onChange={handleUserInputChange} className="w-full p-3 border border-gray-300 rounded-xl bg-white/90 focus:ring-2 focus:ring-blue-400 outline-none transition" />
-            <input type="password" name="password" placeholder="Password" value={userData.password} onChange={handleUserInputChange} className="w-full p-3 border border-gray-300 rounded-xl bg-white/90 focus:ring-2 focus:ring-blue-400 outline-none transition" required />
+            <input
+              type="text"
+              name="name"
+              placeholder="Full Name"
+              value={userData.name}
+              onChange={handleUserInputChange}
+              className="w-full p-3 border border-gray-300 rounded-xl bg-white/90 focus:ring-2 focus:ring-blue-400 outline-none transition"
+              required
+            />
 
-            {/* <div className="grid grid-cols-3 gap-3">
-              <input type="text" name="carMake" placeholder="Make" value={userData.carMake} onChange={handleUserInputChange} className="p-3 border border-gray-300 rounded-xl bg-white/90 focus:ring-2 focus:ring-blue-400 outline-none transition" required />
-              <input type="text" name="carModel" placeholder="Model" value={userData.carModel} onChange={handleUserInputChange} className="p-3 border border-gray-300 rounded-xl bg-white/90 focus:ring-2 focus:ring-blue-400 outline-none transition" />
-              <input type="text" name="plateNumber" placeholder="Plate #" value={userData.plateNumber} onChange={handleUserInputChange} className="p-3 border border-gray-300 rounded-xl bg-white/90 focus:ring-2 focus:ring-blue-400 outline-none transition" />
-            </div> */}
+            <input
+              type="email"
+              name="email"
+              placeholder="Email Address"
+              value={userData.email}
+              onChange={handleUserInputChange}
+              className="w-full p-3 border border-gray-300 rounded-xl bg-white/90 focus:ring-2 focus:ring-blue-400 outline-none transition"
+              required
+            />
 
-            <button type="submit" className="w-full py-3 rounded-xl text-white font-semibold transition bg-gradient-to-r from-blue-500 to-blue-700 hover:scale-[1.02] shadow-lg">
+            <input
+              type="tel"
+              name="phone"
+              placeholder="Phone Number (optional)"
+              value={userData.phone}
+              onChange={handleUserInputChange}
+              className="w-full p-3 border border-gray-300 rounded-xl bg-white/90 focus:ring-2 focus:ring-blue-400 outline-none transition"
+            />
+
+            <input
+              type="password"
+              name="password"
+              placeholder="Password"
+              value={userData.password}
+              onChange={handleUserInputChange}
+              className="w-full p-3 border border-gray-300 rounded-xl bg-white/90 focus:ring-2 focus:ring-blue-400 outline-none transition"
+              required
+            />
+
+            <button
+              type="submit"
+              className="w-full py-3 rounded-xl text-white font-semibold transition bg-gradient-to-r from-blue-500 to-blue-700 hover:scale-[1.02] shadow-lg"
+            >
               Sign Up
             </button>
 
-            {/* Login / Google OAuth */}
+            {/* Login / Google */}
             <div className="flex flex-col items-center gap-3 mt-4">
               <div className="text-gray-700 text-sm">
                 Have an account?{" "}
-                <span className="text-blue-600 font-semibold cursor-pointer hover:underline" onClick={() => navigate("/login")}>
+                <span
+                  className="text-blue-600 font-semibold cursor-pointer hover:underline"
+                  onClick={() => navigate("/login")}
+                >
                   Log in
                 </span>
               </div>
@@ -113,7 +171,11 @@ export default function SignUp() {
                   href="https://car4wash-back.vercel.app/api/auth/google"
                   className="flex items-center gap-2 text-blue-600 font-semibold hover:underline"
                 >
-                  <img src="https://www.freepnglogos.com/uploads/google-logo-png/google-logo-png-webinar-optimizing-for-success-google-business-webinar-13.png" alt="Google" className="w-6 h-6 pointer-events-none select-none" />
+                  <img
+                    src="https://www.freepnglogos.com/uploads/google-logo-png/google-logo-png-webinar-optimizing-for-success-google-business-webinar-13.png"
+                    alt="Google"
+                    className="w-6 h-6 pointer-events-none select-none"
+                  />
                   Google
                 </a>
               </div>
