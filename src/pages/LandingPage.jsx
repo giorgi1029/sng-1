@@ -1,6 +1,5 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import { FaBolt, FaBuilding, FaLock } from "react-icons/fa";
 
 export default function LandingPage() {
 const navigate = useNavigate();
@@ -65,7 +64,7 @@ return ( <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-
 
       {/* Feature Card 1 */}
       <div className="bg-white/70 backdrop-blur-xl rounded-3xl shadow-xl border border-blue-100 p-8 text-center hover:shadow-2xl hover:-translate-y-1 transition-all duration-300">
-        <FaBolt className="text-blue-500 text-5xl mx-auto mb-4" />
+       
         <h3 className="text-2xl font-bold text-blue-700 mb-3">Fast & Reliable</h3>
         <p className="text-gray-600">
           Instantly find and book nearby car wash services with modern UI.
@@ -74,7 +73,7 @@ return ( <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-
 
       {/* Feature Card 2 */}
       <div className="bg-white/70 backdrop-blur-xl rounded-3xl shadow-xl border border-blue-100 p-8 text-center hover:shadow-2xl hover:-translate-y-1 transition-all duration-300">
-        <FaBuilding className="text-blue-500 text-5xl mx-auto mb-4" />
+      
         <h3 className="text-2xl font-bold text-blue-700 mb-3">Business Friendly</h3>
         <p className="text-gray-600">
           Easily register and manage your car wash business from anywhere.
@@ -83,7 +82,7 @@ return ( <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-
 
       {/* Feature Card 3 */}
       <div className="bg-white/70 backdrop-blur-xl rounded-3xl shadow-xl border border-blue-100 p-8 text-center hover:shadow-2xl hover:-translate-y-1 transition-all duration-300">
-        <FaLock className="text-blue-500 text-5xl mx-auto mb-4" />
+       
         <h3 className="text-2xl font-bold text-blue-700 mb-3">Secure Payments</h3>
         <p className="text-gray-600">
           Smooth and safe transactions for every wash and service.
