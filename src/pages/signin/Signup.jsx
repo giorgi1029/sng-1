@@ -8,7 +8,7 @@ export default function SignUp() {
   const navigate = useNavigate();
 
 
-  
+
 
   const [errorMessage, setErrorMessage] = useState("");
 
@@ -85,7 +85,7 @@ export default function SignUp() {
         <button
           className={`px-8 py-2 rounded-full font-semibold text-sm transition shadow-sm ${
             activeTab === "business"
-              ? "bg-green-600 text-white scale-105 shadow-lg"
+              ? "bg-purple-400 text-white scale-105 shadow-lg"
               : "bg-white text-gray-600 hover:bg-gray-100"
           }`}
           onClick={() => setActiveTab("business")}
