@@ -22,6 +22,7 @@ L.Icon.Default.mergeOptions({
 });
 
 export default function Dashboard() {
+  
   const [businesses, setBusinesses] = useState([]);
   const [profile, setProfile] = useState(null);
 
