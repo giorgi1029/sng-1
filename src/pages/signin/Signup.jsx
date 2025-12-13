@@ -29,7 +29,7 @@ export default function SignUp() {
 
     try {
       const res = await fetch(
-        "https://car4wash-back.vercel.app/api/auth/register",
+        "https://car4wash-back.vercel.app/api/users/register",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -64,7 +64,7 @@ export default function SignUp() {
       <div className="absolute bottom-[-150px] right-[-80px] w-[380px] h-[380px] rounded-full bg-blue-500/30 blur-[140px]"></div>
 
       <h1 className="text-5xl font-extrabold text-gray-900 drop-shadow mb-2">
-        Car4wash
+        Spotless
       </h1>
       <p className="text-gray-700 text-lg mb-6">
         Create your account and get started
@@ -183,6 +183,7 @@ export default function SignUp() {
           </form>
         ) : (
           <BusinessForm />
+       
         )}
       </div>
     </div>

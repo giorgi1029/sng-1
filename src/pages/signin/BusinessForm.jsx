@@ -62,73 +62,99 @@ export default function BusinessForm() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const payload = {
-      ...form,
-      services,
-      location: {
-        address: form.location,
-        lat: form.lat,
-        lng: form.lng,
-      },
-    };
+
+    if (!form.lat || !form.lng) {
+      alert("Please select a location on the map.");
+      return;
+    }
+const payload = {
+  businessName: form.name,
+  ownerName: form.name,
+  email: form.email,
+  password: form.password,
+
+  location: {
+    address: form.location,
+    coordinates: {
+      type: "Point",
+      coordinates: [form.lng, form.lat], // correct order
+    },
+  },
+
+  services: services.map((s) => ({
+    name: s.name,
+    price: Number(s.price),
+  })),
+
+  workingHours: {
+    open: form.open,
+    close: form.close,
+  },
+};
+
+
 
     try {
-      const res = await fetch(
-        "https://car4wash-back.vercel.app/api/carwash/",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        }
-      );
+    const res = await fetch(
+  "https://car4wash-back.vercel.app/api/carwash/auth/register",
+  {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  }
+);
+
       const data = await res.json();
+
       if (!res.ok) {
         alert(data.message || "Registration failed");
         return;
       }
+
+      // save carwash to localStorage for dashboard
+      // save carwash to localStorage
+// save carwash to localStorage
+const stored = JSON.parse(localStorage.getItem("businesses")) || [];
+stored.push(payload); // ← store payload directly
+localStorage.setItem("businesses", JSON.stringify(stored));
+
+
+
       alert("Carwash registered successfully!");
       navigate("/dashboard");
     } catch (err) {
       console.error(err);
       alert("Something went wrong. Try again.");
     }
+
+
   };
 
   return (
     <>
       {/* MAP MODAL */}
-      {openMap && (
-      <div className="fixed inset-0 flex items-center justify-center z-50">
-  <div className="relative w-[90%] h-[50vh] rounded-xl overflow-hidden shadow-xl">
+      {openMap && (<div className="fixed inset-0 flex items-center justify-center z-50"> <div className="relative w-[90%] h-[50vh] rounded-xl overflow-hidden shadow-xl">
+        {/* Close Button */}
+        <button
+          onClick={() => setOpenMap(false)}
+          className="absolute top-3 right-3 z-[1000] bg-white/80 hover:bg-white text-red-600 font-bold text-xl
+w-10 h-10 flex items-center justify-center rounded-full shadow-md backdrop-blur-md transition"
+        >
+          ✕ </button>
 
-    {/* Close Button */}
-    <button
-      onClick={() => setOpenMap(false)}
-      className="absolute top-3 right-3 z-[1000] bg-white/80 hover:bg-white text-red-600 font-bold text-xl
-                 w-10 h-10 flex items-center justify-center rounded-full shadow-md backdrop-blur-md transition"
-    >
-      ✕
-    </button>
-
-    {/* MAP */}
-    <MapContainer
-      center={[41.7151, 44.8271]}
-      zoom={13}
-      scrollWheelZoom={true}
-      style={{ width: "100%", height: "100%" }}
-    >
-      <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-      <LocationSelector />
-      {form.lat && form.lng && (
-        <Marker position={[form.lat, form.lng]} />
-      )}
-    </MapContainer>
-
-  </div>
-</div>
-
-
-
+        {/* MAP */}
+        <MapContainer
+          center={[41.7151, 44.8271]}
+          zoom={13}
+          scrollWheelZoom={true}
+          style={{ width: "100%", height: "100%" }}
+        >
+          <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+          <LocationSelector />
+          {form.lat && form.lng && <Marker position={[form.lat, form.lng]} />}
+        </MapContainer>
+      </div>
+      </div>
       )}
 
       {/* FORM */}
@@ -174,16 +200,24 @@ export default function BusinessForm() {
           className="w-full p-3 border border-blue-200 rounded-xl bg-white"
           required
         />
+<div className="flex gap-3">
+  <input
+    type="time"
+    value={form.open}
+    onChange={(e) => setForm({ ...form, open: e.target.value })}
+    className="w-1/2 p-3 border border-blue-200 rounded-xl bg-white"
+    required
+  />
 
-        <input
-          type="text"
-          name="workingHours"
-          placeholder="Working Hours (e.g. 09:00 - 20:00)"
-          value={form.workingHours}
-          onChange={handleChange}
-          className="w-full p-3 border border-blue-200 rounded-xl bg-white"
-          required
-        />
+  <input
+    type="time"
+    value={form.close}
+    onChange={(e) => setForm({ ...form, close: e.target.value })}
+    className="w-1/2 p-3 border border-blue-200 rounded-xl bg-white"
+    required
+  />
+</div>
+
 
         {/* Services */}
         <div>
@@ -231,33 +265,8 @@ export default function BusinessForm() {
         >
           Register Carwash
         </button>
-        <div className="flex flex-col items-center gap-3 mt-4">
-              <div className="text-gray-700 text-sm">
-                Have an account?{" "}
-                <span
-                  className="text-blue-600 font-semibold cursor-pointer hover:underline"
-                  onClick={() => navigate("/login")}
-                >
-                  Log in
-                </span>
-              </div>
-
-              <div className="flex items-center gap-2 text-gray-700 text-sm">
-                Or sign up with
-                <a
-                  href="https://car4wash-back.vercel.app/api/auth/google"
-                  className="flex items-center gap-2 text-blue-600 font-semibold hover:underline"
-                >
-                  <img
-                    src="https://www.freepnglogos.com/uploads/google-logo-png/google-logo-png-webinar-optimizing-for-success-google-business-webinar-13.png"
-                    alt="Google"
-                    className="w-6 h-6 pointer-events-none select-none"
-                  />
-                  Google
-                </a>
-              </div>
-              </div>
       </form>
     </>
+
   );
 }

@@ -26,7 +26,7 @@ return ( <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-
 
     {/* Main content */}
     <h1 className="relative z-10 text-6xl md:text-7xl font-extrabold drop-shadow-lg leading-tight">
-      Car4wash
+      Spotless
     </h1>
     <p className="relative z-10 text-xl md:text-2xl max-w-3xl mt-6 opacity-90">
       Instantly book car washes or register your business. Fast, modern, and reliable.
