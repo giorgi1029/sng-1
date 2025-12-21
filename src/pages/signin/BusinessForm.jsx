@@ -1,10 +1,15 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { MapContainer, TileLayer, Marker, useMapEvents } from "react-leaflet";
+import {
+  MapContainer,
+  TileLayer,
+  Marker,
+  useMapEvents,
+} from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 
-// Fix default marker icon issue in Leaflet
+// ================= LEAFLET ICON FIX =================
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl:
@@ -19,17 +24,21 @@ export default function BusinessForm() {
   const navigate = useNavigate();
 
   const [services, setServices] = useState([{ name: "", price: "" }]);
+
   const [form, setForm] = useState({
     name: "",
-    location: "",
+    location: "", // REAL address
     lat: null,
     lng: null,
     email: "",
     password: "",
-    workingHours: "",
+    open: "",
+    close: "",
   });
+
   const [openMap, setOpenMap] = useState(false);
 
+  // ================= SERVICES =================
   const handleAddService = () => {
     setServices([...services, { name: "", price: "" }]);
   };
@@ -40,69 +49,96 @@ export default function BusinessForm() {
     setServices(updated);
   };
 
+  const handleRemoveService = (index) => {
+    const updated = [...services];
+    updated.splice(index, 1);
+    setServices(updated);
+  };
+
+  // ================= FORM =================
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
+  // ================= MAP CLICK =================
   function LocationSelector() {
     useMapEvents({
-      click(e) {
+      async click(e) {
         const { lat, lng } = e.latlng;
-        setForm({
-          ...form,
-          location: `Selected: (${lat.toFixed(5)}, ${lng.toFixed(5)})`,
-          lat,
-          lng,
-        });
-        setOpenMap(false);
+
+        try {
+          // Reverse geocode (OpenStreetMap)
+          const res = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`
+          );
+          const data = await res.json();
+
+          setForm((prev) => ({
+            ...prev,
+            location: data.display_name || "Unknown address",
+            lat,
+            lng,
+          }));
+
+          setOpenMap(false);
+        } catch (err) {
+          alert("Failed to get address");
+        }
       },
     });
+
     return null;
   }
 
+  // ================= SUBMIT =================
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!form.lat || !form.lng) {
+    if (form.lat == null || form.lng == null) {
       alert("Please select a location on the map.");
       return;
     }
-const payload = {
-  businessName: form.name,
-  ownerName: form.name,
-  email: form.email,
-  password: form.password,
 
-  location: {
-    address: form.location,
-    coordinates: {
-      type: "Point",
-      coordinates: [form.lng, form.lat], // correct order
-    },
-  },
+    const cleanedServices = services.map((s) => ({
+      name: s.name.trim(),
+      price: Number(s.price),
+    }));
 
-  services: services.map((s) => ({
-    name: s.name,
-    price: Number(s.price),
-  })),
+    const payload = {
+      businessName: form.name,
+      ownerName: form.name,
+      email: form.email,
+      password: form.password,
 
-  workingHours: {
-    open: form.open,
-    close: form.close,
-  },
-};
+      location: {
+        address: form.location,
+        coordinates: {
+          type: "Point",
+          coordinates: [form.lng, form.lat],
+        },
+      },
 
+      services: cleanedServices,
 
+      workingHours: {
+        open: form.open,
+        close: form.close,
+      },
+    };
+
+    console.log("Submitting payload:", JSON.stringify(payload, null, 2));
 
     try {
-    const res = await fetch(
-  "https://car4wash-back.vercel.app/api/carwash/auth/register",
-  {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  }
-);
+      const res = await fetch(
+        "https://car4wash-back.vercel.app/api/carwash/auth/register",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload),
+        }
+      );
 
       const data = await res.json();
 
@@ -111,73 +147,60 @@ const payload = {
         return;
       }
 
-      // save carwash to localStorage for dashboard
-      // save carwash to localStorage
-// save carwash to localStorage
-const stored = JSON.parse(localStorage.getItem("businesses")) || [];
-stored.push(payload); // ← store payload directly
-localStorage.setItem("businesses", JSON.stringify(stored));
-
-
-
       alert("Carwash registered successfully!");
       navigate("/dashboard");
     } catch (err) {
       console.error(err);
-      alert("Something went wrong. Try again.");
+      alert("Something went wrong.");
     }
-
-
   };
 
   return (
     <>
-      {/* MAP MODAL */}
-      {openMap && (<div className="fixed inset-0 flex items-center justify-center z-50"> <div className="relative w-[90%] h-[50vh] rounded-xl overflow-hidden shadow-xl">
-        {/* Close Button */}
-        <button
-          onClick={() => setOpenMap(false)}
-          className="absolute top-3 right-3 z-[1000] bg-white/80 hover:bg-white text-red-600 font-bold text-xl
-w-10 h-10 flex items-center justify-center rounded-full shadow-md backdrop-blur-md transition"
-        >
-          ✕ </button>
+      {/* ================= MAP MODAL ================= */}
+      {openMap && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="relative w-[90%] h-[50vh] rounded-xl overflow-hidden shadow-xl bg-white">
+            <button
+              onClick={() => setOpenMap(false)}
+              className="absolute top-3 right-3 z-[1000] w-10 h-10 rounded-full bg-white text-red-600 font-bold text-xl shadow"
+            >
+              ✕
+            </button>
 
-        {/* MAP */}
-        <MapContainer
-          center={[41.7151, 44.8271]}
-          zoom={13}
-          scrollWheelZoom={true}
-          style={{ width: "100%", height: "100%" }}
-        >
-          <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-          <LocationSelector />
-          {form.lat && form.lng && <Marker position={[form.lat, form.lng]} />}
-        </MapContainer>
-      </div>
-      </div>
+            <MapContainer
+              center={[41.7151, 44.8271]}
+              zoom={13}
+              scrollWheelZoom
+              style={{ width: "100%", height: "100%" }}
+            >
+              <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+              <LocationSelector />
+              {form.lat && form.lng && <Marker position={[form.lat, form.lng]} />}
+            </MapContainer>
+          </div>
+        </div>
       )}
 
-      {/* FORM */}
-      <form className="space-y-3 max-w-md mx-auto" onSubmit={handleSubmit}>
+      {/* ================= FORM ================= */}
+      <form onSubmit={handleSubmit} className="space-y-3 max-w-md mx-auto">
         <input
           type="text"
           name="name"
           placeholder="Carwash Name"
           value={form.name}
           onChange={handleChange}
-          className="w-full p-3 border border-blue-200 rounded-xl bg-white"
+          className="w-full p-3 border border-gray-300 rounded-xl bg-white/90"
           required
         />
 
-        {/* Click to open map */}
         <input
           type="text"
-          name="location"
           placeholder="Click to select location"
           value={form.location}
           readOnly
           onClick={() => setOpenMap(true)}
-          className="w-full p-3 border border-blue-200 rounded-xl bg-white cursor-pointer"
+          className="w-full p-3 border border-gray-300 rounded-xl bg-white/90 cursor-pointer"
           required
         />
 
@@ -187,7 +210,7 @@ w-10 h-10 flex items-center justify-center rounded-full shadow-md backdrop-blur-
           placeholder="Business Email"
           value={form.email}
           onChange={handleChange}
-          className="w-full p-3 border border-blue-200 rounded-xl bg-white"
+          className="w-full p-3 border border-gray-300 rounded-xl bg-white/90"
           required
         />
 
@@ -197,63 +220,66 @@ w-10 h-10 flex items-center justify-center rounded-full shadow-md backdrop-blur-
           placeholder="Password"
           value={form.password}
           onChange={handleChange}
-          className="w-full p-3 border border-blue-200 rounded-xl bg-white"
+          className="w-full p-3 border border-gray-300 rounded-xl bg-white/90"
           required
         />
-<div className="flex gap-3">
-  <input
-    type="time"
-    value={form.open}
-    onChange={(e) => setForm({ ...form, open: e.target.value })}
-    className="w-1/2 p-3 border border-blue-200 rounded-xl bg-white"
-    required
-  />
 
-  <input
-    type="time"
-    value={form.close}
-    onChange={(e) => setForm({ ...form, close: e.target.value })}
-    className="w-1/2 p-3 border border-blue-200 rounded-xl bg-white"
-    required
-  />
-</div>
+        <div className="flex gap-3">
+          <input
+            type="time"
+            value={form.open}
+            onChange={(e) => setForm({ ...form, open: e.target.value })}
+            className="w-1/2 p-3 border border-gray-300 rounded-xl bg-white/90"
+            required
+          />
+          <input
+            type="time"
+            value={form.close}
+            onChange={(e) => setForm({ ...form, close: e.target.value })}
+            className="w-1/2 p-3 border border-gray-300 rounded-xl bg-white/90"
+            required
+          />
+        </div>
 
-
-        {/* Services */}
+        {/* ================= SERVICES ================= */}
         <div>
-          <label className="block text-gray-700 font-semibold mb-2">
-            Services You Offer
-          </label>
+          <p className="font-semibold mb-2">Services You Offer</p>
 
-          {services.map((service, index) => (
-            <div key={index} className="flex gap-3 mb-3">
+          {services.map((service, i) => (
+            <div key={i} className="flex gap-3 mb-3 items-center">
               <input
                 type="text"
-                placeholder={`Service ${index + 1}`}
+                placeholder={`Service ${i + 1}`}
                 value={service.name}
-                onChange={(e) =>
-                  handleServiceChange(index, "name", e.target.value)
-                }
-                className="w-2/3 p-3 border border-blue-200 rounded-xl bg-white"
+                onChange={(e) => handleServiceChange(i, "name", e.target.value)}
+                className="w-2/3 p-3 border border-gray-300 rounded-xl bg-white/90"
                 required
               />
               <input
                 type="number"
                 placeholder="₾ Price"
                 value={service.price}
-                onChange={(e) =>
-                  handleServiceChange(index, "price", e.target.value)
-                }
-                className="w-1/3 p-3 border border-blue-200 rounded-xl bg-white"
+                onChange={(e) => handleServiceChange(i, "price", e.target.value)}
+                className="w-1/3 p-3 border border-gray-300 rounded-xl bg-white/90"
                 required
               />
+              {services.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => handleRemoveService(i)}
+                  className="ml-2 px-2 py-1 rounded-full bg-red-100 text-red-600 font-bold hover:bg-red-200 transition"
+                  title="Remove this service"
+                >
+                  ✕
+                </button>
+              )}
             </div>
           ))}
 
           <button
             type="button"
             onClick={handleAddService}
-            className="w-full py-2 border border-blue-400 text-blue-600 rounded-xl bg-blue-50 hover:bg-blue-100 transition"
+            className="w-full py-2 border border-gray-300 rounded-xl bg-white/90 text-blue-600"
           >
             + Add Another Service
           </button>
@@ -261,12 +287,11 @@ w-10 h-10 flex items-center justify-center rounded-full shadow-md backdrop-blur-
 
         <button
           type="submit"
-          className="w-full py-3 rounded-xl bg-blue-600 text-white font-semibold shadow-lg hover:scale-105 transition"
+          className="w-full py-3 rounded-xl bg-blue-600 text-white font-semibold"
         >
           Register Carwash
         </button>
       </form>
     </>
-
   );
 }

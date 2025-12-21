@@ -10,7 +10,7 @@ import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import Header from "../components/Header";
 
-// Fix Leaflet marker icons
+// ================= LEAFLET ICON FIX =================
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl:
@@ -22,35 +22,64 @@ L.Icon.Default.mergeOptions({
 });
 
 export default function Dashboard() {
-  
   const [businesses, setBusinesses] = useState([]);
   const [profile, setProfile] = useState(null);
+  const [loading, setLoading] = useState(true);
 
+  // ================= FETCH DATA =================
   useEffect(() => {
-    const storedBusinesses =
-      JSON.parse(localStorage.getItem("businesses")) || [];
-    setBusinesses(storedBusinesses);
+    const fetchCarwashes = async () => {
+      try {
+        const res = await fetch(
+          "https://car4wash-back.vercel.app/api/carwash"
+        );
+        const data = await res.json();
+        setBusinesses(data);
+      } catch (err) {
+        console.error("Failed to fetch carwashes:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCarwashes();
 
     const userData = JSON.parse(localStorage.getItem("userData"));
     setProfile(userData);
   }, []);
 
-  // DELETE a business
-  const handleDelete = (index) => {
-    const updated = businesses.filter((_, i) => i !== index);
-    setBusinesses(updated);
-    localStorage.setItem("businesses", JSON.stringify(updated));
+  // ================= DELETE CARWASH =================
+  const handleDelete = async (id) => {
+    if (!window.confirm("Delete this carwash?")) return;
+
+    try {
+      const token = localStorage.getItem("token");
+
+      await fetch(
+        `https://car4wash-back.vercel.app/api/carwash/${id}`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      setBusinesses((prev) => prev.filter((b) => b._id !== id));
+    } catch (err) {
+      console.error("Delete failed:", err);
+    }
   };
 
   return (
     <div className="min-h-screen">
-      <Header/>
-      <main className="flex flex-1 p-4 gap-4 h-[88vh]">
+      <Header />
 
+      <main className="flex flex-1 p-4 gap-4 h-[88vh]">
         {/* ================= MAP ================= */}
         <section className="flex-1 bg-white rounded-3xl overflow-hidden">
           <MapContainer
-            center={[41.7151, 44.8271]}
+            center={[41.7151, 44.8271]} // Tbilisi
             zoom={12}
             scrollWheelZoom
             style={{ width: "100%", height: "100%" }}
@@ -65,13 +94,13 @@ export default function Dashboard() {
               </LayersControl.BaseLayer>
             </LayersControl>
 
-            {businesses.map((b, i) => {
+            {businesses.map((b) => {
               const coords = b.location?.coordinates?.coordinates;
               if (!coords) return null;
 
               return (
                 <Marker
-                  key={i}
+                  key={b._id}
                   position={[coords[1], coords[0]]} // lat, lng
                 >
                   <Popup>
@@ -86,31 +115,41 @@ export default function Dashboard() {
         </section>
 
         {/* ================= BUSINESS LIST ================= */}
-        <aside className="w-110 bg-gray-200 p-4 overflow-y-auto">
+        <aside className="w-110 bg-gray-200 p-4 overflow-y-auto rounded-3xl">
           <h2 className="text-xl font-bold mb-4">
-            My Businesses
+            All Carwashes
           </h2>
 
-          {businesses.length === 0 && (
+          {loading && (
             <p className="text-gray-500">
-              No businesses registered yet.
+              Loading carwashes...
             </p>
           )}
 
-          {businesses.map((b, i) => (
+          {!loading && businesses.length === 0 && (
+            <p className="text-gray-500">
+              No carwashes registered yet.
+            </p>
+          )}
+
+          {businesses.map((b) => (
             <div
-              key={i}
+              key={b._id}
               className="mb-4 p-4 bg-white rounded-2xl shadow hover:shadow-lg transition flex justify-between items-start"
             >
               <div>
-                <h3 className="font-bold text-lg">{b.businessName}</h3>
+                <h3 className="font-bold text-lg">
+                  {b.businessName}
+                </h3>
 
                 <p className="text-sm text-gray-600">
                   {b.location?.address || "No address provided"}
                 </p>
 
                 <div className="mt-2">
-                  <p className="text-sm font-semibold">Services:</p>
+                  <p className="text-sm font-semibold">
+                    Services:
+                  </p>
                   <ul className="text-sm text-gray-700">
                     {b.services?.map((s, idx) => (
                       <li key={idx}>
@@ -121,17 +160,21 @@ export default function Dashboard() {
                 </div>
 
                 <div className="mt-2 text-xs text-gray-500">
-                  ⏰ {b.workingHours?.open} – {b.workingHours?.close}
+                  ⏰ {b.workingHours?.open} –{" "}
+                  {b.workingHours?.close}
                 </div>
               </div>
 
-              {/* DELETE BUTTON */}
-              <button
-                onClick={() => handleDelete(i)}
-                className="ml-4 mt-1 px-2 py-1 rounded-xl bg-red-100 text-red-600 text-sm hover:bg-red-200 transition"
-              >
-                Delete
-              </button>
+              {/* ===== DELETE (ONLY OWNER) ===== */}
+              {(profile?._id === b.owner ||
+                profile?.role === "admin") && (
+                <button
+                  onClick={() => handleDelete(b._id)}
+                  className="ml-4 mt-1 px-2 py-1 rounded-xl bg-red-100 text-red-600 text-sm hover:bg-red-200 transition"
+                >
+                  Delete
+                </button>
+              )}
             </div>
           ))}
         </aside>
