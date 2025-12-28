@@ -286,11 +286,22 @@ export default function BusinessForm() {
         </div>
 
         <button
-          type="submit"
-          className="w-full py-3 rounded-xl bg-blue-600 text-white font-semibold"
-        >
-          Register Carwash
-        </button>
+  type="submit"
+  className="w-full py-3 rounded-xl bg-blue-600 text-white font-semibold"
+>
+  Register Carwash
+</button>
+
+<div className="text-gray-700 text-sm mt-4 text-center">
+  Already have a carwash account?{" "}
+  <span
+    className="text-blue-600 font-semibold cursor-pointer hover:underline"
+    onClick={() => navigate("/carwashlogin")}
+  >
+    Log In
+  </span>
+</div>
+
       </form>
     </>
   );

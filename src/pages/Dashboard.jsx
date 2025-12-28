@@ -26,6 +26,11 @@ export default function Dashboard() {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // ===== FILTER STATE =====
+  const [search, setSearch] = useState("");
+  const [serviceFilter, setServiceFilter] = useState("");
+  const [maxPrice, setMaxPrice] = useState("");
+
   // ================= FETCH DATA =================
   useEffect(() => {
     const fetchCarwashes = async () => {
@@ -48,6 +53,27 @@ export default function Dashboard() {
     setProfile(userData);
   }, []);
 
+  // ================= FILTER LOGIC =================
+  const filteredBusinesses = businesses.filter((b) => {
+    const matchesSearch =
+      b.businessName.toLowerCase().includes(search.toLowerCase()) ||
+      b.location?.address
+        ?.toLowerCase()
+        .includes(search.toLowerCase());
+
+    const matchesService = serviceFilter
+      ? b.services?.some((s) =>
+          s.name.toLowerCase().includes(serviceFilter.toLowerCase())
+        )
+      : true;
+
+    const matchesPrice = maxPrice
+      ? b.services?.some((s) => Number(s.price) <= Number(maxPrice))
+      : true;
+
+    return matchesSearch && matchesService && matchesPrice;
+  });
+
   // ================= DELETE CARWASH =================
   const handleDelete = async (id) => {
     if (!window.confirm("Delete this carwash?")) return;
@@ -65,7 +91,9 @@ export default function Dashboard() {
         }
       );
 
-      setBusinesses((prev) => prev.filter((b) => b._id !== id));
+      setBusinesses((prev) =>
+        prev.filter((b) => b._id !== id)
+      );
     } catch (err) {
       console.error("Delete failed:", err);
     }
@@ -79,7 +107,7 @@ export default function Dashboard() {
         {/* ================= MAP ================= */}
         <section className="flex-1 bg-white rounded-3xl overflow-hidden">
           <MapContainer
-            center={[41.7151, 44.8271]} // Tbilisi
+            center={[41.7151, 44.8271]}
             zoom={12}
             scrollWheelZoom
             style={{ width: "100%", height: "100%" }}
@@ -94,19 +122,21 @@ export default function Dashboard() {
               </LayersControl.BaseLayer>
             </LayersControl>
 
-            {businesses.map((b) => {
-              const coords = b.location?.coordinates?.coordinates;
+            {filteredBusinesses.map((b) => {
+              const coords =
+                b.location?.coordinates?.coordinates;
               if (!coords) return null;
 
               return (
                 <Marker
                   key={b._id}
-                  position={[coords[1], coords[0]]} // lat, lng
+                  position={[coords[1], coords[0]]}
                 >
                   <Popup>
                     <strong>{b.businessName}</strong>
                     <br />
-                    {b.location?.address || "No address provided"}
+                    {b.location?.address ||
+                      "No address provided"}
                   </Popup>
                 </Marker>
               );
@@ -120,19 +150,49 @@ export default function Dashboard() {
             All Carwashes
           </h2>
 
+          {/* ================= FILTER UI ================= */}
+          <div className="mb-4 space-y-2">
+            <input
+              type="text"
+              placeholder="Search name or address"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full p-2 rounded-xl border border-gray-300"
+            />
+
+            <input
+              type="text"
+              placeholder="Filter by service"
+              value={serviceFilter}
+              onChange={(e) =>
+                setServiceFilter(e.target.value)
+              }
+              className="w-full p-2 rounded-xl border border-gray-300"
+            />
+
+            <input
+              type="number"
+              placeholder="Max price (₾)"
+              value={maxPrice}
+              onChange={(e) => setMaxPrice(e.target.value)}
+              className="w-full p-2 rounded-xl border border-gray-300"
+            />
+          </div>
+
           {loading && (
             <p className="text-gray-500">
               Loading carwashes...
             </p>
           )}
 
-          {!loading && businesses.length === 0 && (
-            <p className="text-gray-500">
-              No carwashes registered yet.
-            </p>
-          )}
+          {!loading &&
+            filteredBusinesses.length === 0 && (
+              <p className="text-gray-500">
+                No matching carwashes found.
+              </p>
+            )}
 
-          {businesses.map((b) => (
+          {filteredBusinesses.map((b) => (
             <div
               key={b._id}
               className="mb-4 p-4 bg-white rounded-2xl shadow hover:shadow-lg transition flex justify-between items-start"
@@ -143,7 +203,8 @@ export default function Dashboard() {
                 </h3>
 
                 <p className="text-sm text-gray-600">
-                  {b.location?.address || "No address provided"}
+                  {b.location?.address ||
+                    "No address provided"}
                 </p>
 
                 <div className="mt-2">
@@ -165,11 +226,12 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              {/* ===== DELETE (ONLY OWNER) ===== */}
               {(profile?._id === b.owner ||
                 profile?.role === "admin") && (
                 <button
-                  onClick={() => handleDelete(b._id)}
+                  onClick={() =>
+                    handleDelete(b._id)
+                  }
                   className="ml-4 mt-1 px-2 py-1 rounded-xl bg-red-100 text-red-600 text-sm hover:bg-red-200 transition"
                 >
                   Delete
