@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import Header from "../components/Header";
 
 export default function Profile() {
@@ -6,6 +7,7 @@ export default function Profile() {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [formData, setFormData] = useState({ name: "", email: "", phone: "" });
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetch("https://car4wash-back.vercel.app/api/users/me", {
@@ -24,22 +26,25 @@ export default function Profile() {
   }, []);
 
   const handleUpdate = async () => {
-    const res = await fetch(
-      "https://car4wash-back.vercel.app/api/users/update",
-      {
-        method: "PUT",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
-      }
-    );
-    if (res.ok) {
+    try {
+      const res = await fetch(
+        "https://car4wash-back.vercel.app/api/users/update",
+        {
+          method: "PUT",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(formData),
+        }
+      );
+
+      if (!res.ok) throw new Error("Update failed");
+
       const data = await res.json();
       setUser(data.user);
       setEditing(false);
-      alert("Profile updated!");
-    } else {
-      alert("Update failed");
+      alert("Profile updated successfully!");
+    } catch (err) {
+      alert(err.message);
     }
   };
 
@@ -48,26 +53,64 @@ export default function Profile() {
       method: "POST",
       credentials: "include",
     });
-    window.location.reload();
+    navigate("/login"); // 🔥 redirect to sign in page
   };
 
-  if (loading) return <p>Loading...</p>;
-  if (!user) return <p>You are not logged in.</p>;
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-blue-500 border-solid"></div>
+        <p className="mt-4 text-gray-500 text-lg">Loading profile...</p>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <p className="text-gray-500 text-lg">You are not logged in.</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen bg-gray-50">
       <Header />
       <main className="max-w-3xl mx-auto p-6">
-        <div className="bg-white rounded-3xl shadow p-6">
-          <h1 className="text-2xl font-bold mb-6">Profile</h1>
+        <div className="bg-white rounded-3xl shadow-lg p-8">
+          <h1 className="text-3xl font-bold mb-6 text-gray-800">Profile</h1>
 
           {editing ? (
             <div className="space-y-4">
-              <InputField label="Full Name" value={formData.name} onChange={(v) => setFormData({...formData, name: v})} />
-              <InputField label="Email" value={formData.email} onChange={(v) => setFormData({...formData, email: v})} />
-              <InputField label="Phone" value={formData.phone} onChange={(v) => setFormData({...formData, phone: v})} />
-              <button onClick={handleUpdate} className="px-4 py-2 bg-green-500 text-white rounded">Save</button>
-              <button onClick={() => setEditing(false)} className="px-4 py-2 bg-gray-300 rounded">Cancel</button>
+              <InputField
+                label="Full Name"
+                value={formData.name}
+                onChange={(v) => setFormData({ ...formData, name: v })}
+              />
+              <InputField
+                label="Email"
+                value={formData.email}
+                onChange={(v) => setFormData({ ...formData, email: v })}
+              />
+              <InputField
+                label="Phone"
+                value={formData.phone}
+                onChange={(v) => setFormData({ ...formData, phone: v })}
+              />
+              <div className="flex gap-4 mt-4">
+                <button
+                  onClick={handleUpdate}
+                  className="px-6 py-2 bg-green-500 text-white rounded-xl hover:bg-green-600 transition"
+                >
+                  Save
+                </button>
+                <button
+                  onClick={() => setEditing(false)}
+                  className="px-6 py-2 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 transition"
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
           ) : (
             <div className="space-y-4">
@@ -77,8 +120,20 @@ export default function Profile() {
               <Info label="Role" value={user.role} />
               <Info label="User ID" value={user._id} />
 
-              <button onClick={() => setEditing(true)} className="mt-4 px-6 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition">Edit Profile</button>
-              <button onClick={handleLogout} className="mt-2 px-6 py-2 bg-red-500 text-white rounded hover:bg-red-600 transition">Logout</button>
+              <div className="flex gap-4 mt-6">
+                <button
+                  onClick={() => setEditing(true)}
+                  className="px-6 py-2 bg-blue-500 text-white rounded-xl hover:bg-blue-600 transition"
+                >
+                  Edit Profile
+                </button>
+                <button
+                  onClick={handleLogout}
+                  className="px-6 py-2 bg-red-500 text-white rounded-xl hover:bg-red-600 transition"
+                >
+                  Logout
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -90,8 +145,8 @@ export default function Profile() {
 function Info({ label, value }) {
   return (
     <div>
-      <p className="text-sm text-gray-500">{label}</p>
-      <p className="font-semibold">{value || "—"}</p>
+      <p className="text-sm text-gray-400">{label}</p>
+      <p className="font-semibold text-gray-700">{value || "—"}</p>
     </div>
   );
 }
@@ -101,12 +156,10 @@ function InputField({ label, value, onChange }) {
     <div>
       <p className="text-sm text-gray-500">{label}</p>
       <input
-        className="w-full border px-3 py-2 rounded mt-1"
+        className="w-full border border-gray-300 px-3 py-2 rounded-lg mt-1 focus:outline-none focus:ring-2 focus:ring-blue-400"
         value={value}
         onChange={(e) => onChange(e.target.value)}
       />
     </div>
   );
 }
-
-
