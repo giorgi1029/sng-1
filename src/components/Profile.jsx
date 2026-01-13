@@ -3,75 +3,104 @@ import { useNavigate } from "react-router-dom";
 import Header from "../components/Header";
 
 export default function Profile() {
-  const [user, setUser] = useState(null);
+  const [profile, setProfile] = useState(null);
+  const [userType, setUserType] = useState(null); // 'customer' or 'carwash'
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
-  const [formData, setFormData] = useState({ name: "", email: "", phone: "" });
+  const [formData, setFormData] = useState({});
   const navigate = useNavigate();
 
   useEffect(() => {
-    const fetchUser = async () => {
+    const fetchProfile = async () => {
       const token = localStorage.getItem("token");
-
       if (!token) {
         setLoading(false);
-        setUser(null);
         return;
       }
 
       try {
-        const res = await fetch("https://car4wash-back.vercel.app/api/users/me", {
-          method: "GET",
+        // Try customer endpoint first
+        let res = await fetch("https://car4wash-back.vercel.app/api/users/me", {
           headers: {
-            "Authorization": `Bearer ${token}`,
-            "Accept": "application/json",
+            Authorization: `Bearer ${token}`,
+            Accept: "application/json",
           },
         });
 
-        if (res.status === 401) {
-          // Token invalid/expired → clear it and treat as logged out
-          localStorage.removeItem("token");
-          setUser(null);
-          return;
+        let data;
+        if (res.ok) {
+          data = await res.json();
+          setUserType("customer");
+          localStorage.setItem("userType", "customer");
+          localStorage.setItem("role", data.role || "customer");
+        } else if (res.status === 401 || !res.ok) {
+          // Try carwash endpoint
+          res = await fetch("https://car4wash-back.vercel.app/api/carwash/auth/me", {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              Accept: "application/json",
+            },
+          });
+
+          if (res.ok) {
+            data = await res.json();
+            setUserType("carwash");
+            localStorage.setItem("userType", "carwash");
+            // carwash may not have 'role', but you can set 'owner'
+          } else {
+            throw new Error("Profile fetch failed on both endpoints");
+          }
         }
 
-        if (!res.ok) {
-          throw new Error("Failed to fetch profile");
+        setProfile(data);
+        // Set initial form data
+        if (userType === "customer") {
+          setFormData({
+            name: data.name || "",
+            email: data.email || "",
+            phone: data.phone || "",
+          });
+        } else if (userType === "carwash") {
+          setFormData({
+            businessName: data.businessName || "",
+            ownerName: data.ownerName || "",
+            email: data.email || "",
+            phone: data.phone || "",
+          });
         }
-
-        const data = await res.json();
-        setUser(data);
-        setFormData({
-          name: data.name || "",
-          email: data.email || "",
-          phone: data.phone || "",
-        });
       } catch (err) {
         console.error("Profile fetch error:", err);
         localStorage.removeItem("token");
-        setUser(null);
+        localStorage.removeItem("userType");
+        localStorage.removeItem("role");
+        setProfile(null);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchUser();
+    fetchProfile();
   }, []);
 
   const handleUpdate = async () => {
     const token = localStorage.getItem("token");
     if (!token) {
-      alert("You must be logged in to update your profile");
+      alert("You must be logged in");
       navigate("/login");
       return;
     }
 
+    const endpoint =
+      userType === "carwash"
+        ? "https://car4wash-back.vercel.app/api/carwash/auth/update"
+        : "https://car4wash-back.vercel.app/api/users/update";
+
     try {
-      const res = await fetch("https://car4wash-back.vercel.app/api/users/update", {
+      const res = await fetch(endpoint, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(formData),
       });
@@ -89,7 +118,7 @@ export default function Profile() {
       }
 
       const data = await res.json();
-      setUser(data.user);
+      setProfile(userType === "carwash" ? data.carwash : data.user);
       setEditing(false);
       alert("Profile updated successfully!");
     } catch (err) {
@@ -99,25 +128,25 @@ export default function Profile() {
 
   const handleLogout = async () => {
     const token = localStorage.getItem("token");
+    const base = "https://car4wash-back.vercel.app/api";
 
-    // Optional: call backend logout (mostly for symmetry / future blacklisting)
+    const logoutEndpoint =
+      userType === "carwash"
+        ? `${base}/carwash/auth/logout`   // add this route if needed
+        : `${base}/users/logout`;
+
     if (token) {
       try {
-        await fetch("https://car4wash-back.vercel.app/api/users/logout", {
+        await fetch(logoutEndpoint, {
           method: "POST",
-          headers: {
-            "Authorization": `Bearer ${token}`,
-          },
+          headers: { Authorization: `Bearer ${token}` },
         });
       } catch (err) {
         console.warn("Logout request failed:", err);
-        // continue anyway — we still clear local token
       }
     }
 
-    localStorage.removeItem("token");
-    // localStorage.removeItem("user"); // if you stored it
-
+    localStorage.clear(); // safe & simple
     navigate("/login");
   };
 
@@ -130,7 +159,7 @@ export default function Profile() {
     );
   }
 
-  if (!user) {
+  if (!profile) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <p className="text-gray-500 text-lg">You are not logged in.</p>
@@ -138,20 +167,40 @@ export default function Profile() {
     );
   }
 
+  const isCarwash = userType === "carwash";
+
   return (
     <div className="min-h-screen bg-gray-50">
       <Header />
       <main className="max-w-3xl mx-auto p-6">
         <div className="bg-white rounded-3xl shadow-lg p-8">
-          <h1 className="text-3xl font-bold mb-6 text-gray-800">Profile</h1>
+          <h1 className="text-3xl font-bold mb-6 text-gray-800">
+            {isCarwash ? "Business Profile" : "User Profile"}
+          </h1>
 
           {editing ? (
             <div className="space-y-4">
-              <InputField
-                label="Full Name"
-                value={formData.name}
-                onChange={(v) => setFormData({ ...formData, name: v })}
-              />
+              {isCarwash ? (
+                <>
+                  <InputField
+                    label="Business Name"
+                    value={formData.businessName}
+                    onChange={(v) => setFormData({ ...formData, businessName: v })}
+                  />
+                  <InputField
+                    label="Owner Name"
+                    value={formData.ownerName}
+                    onChange={(v) => setFormData({ ...formData, ownerName: v })}
+                  />
+                </>
+              ) : (
+                <InputField
+                  label="Full Name"
+                  value={formData.name}
+                  onChange={(v) => setFormData({ ...formData, name: v })}
+                />
+              )}
+
               <InputField
                 label="Email"
                 value={formData.email}
@@ -162,6 +211,10 @@ export default function Profile() {
                 value={formData.phone}
                 onChange={(v) => setFormData({ ...formData, phone: v })}
               />
+
+              {/* Optional: add password change field */}
+              {/* <InputField label="New Password (optional)" type="password" ... /> */}
+
               <div className="flex gap-4 mt-4">
                 <button
                   onClick={handleUpdate}
@@ -179,11 +232,21 @@ export default function Profile() {
             </div>
           ) : (
             <div className="space-y-4">
-              <Info label="Full Name" value={user.name} />
-              <Info label="Email" value={user.email} />
-              <Info label="Phone" value={user.phone || "—"} />
-              <Info label="Role" value={user.role} />
-              <Info label="User ID" value={user._id} />
+              {isCarwash ? (
+                <>
+                  <Info label="Business Name" value={profile.businessName} />
+                  <Info label="Owner Name" value={profile.ownerName} />
+                </>
+              ) : (
+                <>
+                  <Info label="Full Name" value={profile.name} />
+                  <Info label="Role" value={profile.role} />
+                </>
+              )}
+
+              <Info label="Email" value={profile.email} />
+              <Info label="Phone" value={profile.phone || "—"} />
+              <Info label="ID" value={profile.id || profile._id} />
 
               <div className="flex gap-4 mt-6">
                 <button
@@ -207,6 +270,7 @@ export default function Profile() {
   );
 }
 
+// Reuse your Info & InputField components
 function Info({ label, value }) {
   return (
     <div>
