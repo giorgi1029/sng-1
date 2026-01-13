@@ -4,10 +4,11 @@ import Header from "../components/Header";
 
 export default function Profile() {
   const [profile, setProfile] = useState(null);
-  const [userType, setUserType] = useState(null); // 'customer' or 'carwash'
+  const [userType, setUserType] = useState(null); // "customer" | "carwash" | null
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [formData, setFormData] = useState({});
+  const [error, setError] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -19,7 +20,9 @@ export default function Profile() {
       }
 
       try {
-        // Try customer endpoint first
+        setError(null);
+
+        // 1. Try customer endpoint
         let res = await fetch("https://car4wash-back.vercel.app/api/users/me", {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -28,13 +31,13 @@ export default function Profile() {
         });
 
         let data;
+        let type = null;
+
         if (res.ok) {
           data = await res.json();
-          setUserType("customer");
-          localStorage.setItem("userType", "customer");
-          localStorage.setItem("role", data.role || "customer");
-        } else if (res.status === 401 || !res.ok) {
-          // Try carwash endpoint
+          type = "customer";
+        } else {
+          // 2. Try carwash endpoint
           res = await fetch("https://car4wash-back.vercel.app/api/carwash/auth/me", {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -44,48 +47,58 @@ export default function Profile() {
 
           if (res.ok) {
             data = await res.json();
-            setUserType("carwash");
-            localStorage.setItem("userType", "carwash");
-            // carwash may not have 'role', but you can set 'owner'
+            type = "carwash";
           } else {
-            throw new Error("Profile fetch failed on both endpoints");
+            if (res.status === 401) {
+              localStorage.removeItem("token");
+              localStorage.removeItem("userType");
+              navigate("/login");
+              return;
+            }
+            throw new Error(`Profile fetch failed: ${res.status} ${res.statusText}`);
           }
         }
 
-        setProfile(data);
-        // Set initial form data
-        if (userType === "customer") {
+        // Now we have data & type
+        setUserType(type);
+        localStorage.setItem("userType", type);
+
+        // Normalize profile (unwrap carwash nested object)
+        const normalizedProfile = type === "carwash" ? data.carwash : data;
+        setProfile(normalizedProfile);
+
+        // Set form data
+        if (type === "customer") {
           setFormData({
-            name: data.name || "",
-            email: data.email || "",
-            phone: data.phone || "",
+            name: normalizedProfile.name || "",
+            email: normalizedProfile.email || "",
+            phone: normalizedProfile.phone || "",
           });
-        } else if (userType === "carwash") {
+        } else {
           setFormData({
-            businessName: data.businessName || "",
-            ownerName: data.ownerName || "",
-            email: data.email || "",
-            phone: data.phone || "",
+            businessName: normalizedProfile.businessName || "",
+            ownerName: normalizedProfile.ownerName || "",
+            email: normalizedProfile.email || "",
+            phone: normalizedProfile.phone || "",
           });
         }
       } catch (err) {
         console.error("Profile fetch error:", err);
+        setError(err.message || "Failed to load profile");
         localStorage.removeItem("token");
         localStorage.removeItem("userType");
-        localStorage.removeItem("role");
-        setProfile(null);
       } finally {
         setLoading(false);
       }
     };
 
     fetchProfile();
-  }, []);
+  }, [navigate]);
 
   const handleUpdate = async () => {
     const token = localStorage.getItem("token");
-    if (!token) {
-      alert("You must be logged in");
+    if (!token || !userType) {
+      alert("Session invalid. Please log in again.");
       navigate("/login");
       return;
     }
@@ -113,40 +126,22 @@ export default function Profile() {
       }
 
       if (!res.ok) {
-        const errData = await res.json();
+        const errData = await res.json().catch(() => ({}));
         throw new Error(errData.message || "Update failed");
       }
 
       const data = await res.json();
-      setProfile(userType === "carwash" ? data.carwash : data.user);
+      const updated = userType === "carwash" ? data.carwash : data.user;
+      setProfile(updated);
       setEditing(false);
       alert("Profile updated successfully!");
     } catch (err) {
-      alert(err.message || "Something went wrong");
+      alert(err.message || "Update failed");
     }
   };
 
   const handleLogout = async () => {
-    const token = localStorage.getItem("token");
-    const base = "https://car4wash-back.vercel.app/api";
-
-    const logoutEndpoint =
-      userType === "carwash"
-        ? `${base}/carwash/auth/logout`   // add this route if needed
-        : `${base}/users/logout`;
-
-    if (token) {
-      try {
-        await fetch(logoutEndpoint, {
-          method: "POST",
-          headers: { Authorization: `Bearer ${token}` },
-        });
-      } catch (err) {
-        console.warn("Logout request failed:", err);
-      }
-    }
-
-    localStorage.clear(); // safe & simple
+    localStorage.clear();
     navigate("/login");
   };
 
@@ -159,7 +154,15 @@ export default function Profile() {
     );
   }
 
-  if (!profile) {
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <p className="text-red-600 text-lg">{error}</p>
+      </div>
+    );
+  }
+
+  if (!profile || !userType) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <p className="text-gray-500 text-lg">You are not logged in.</p>
@@ -184,36 +187,33 @@ export default function Profile() {
                 <>
                   <InputField
                     label="Business Name"
-                    value={formData.businessName}
+                    value={formData.businessName || ""}
                     onChange={(v) => setFormData({ ...formData, businessName: v })}
                   />
                   <InputField
                     label="Owner Name"
-                    value={formData.ownerName}
+                    value={formData.ownerName || ""}
                     onChange={(v) => setFormData({ ...formData, ownerName: v })}
                   />
                 </>
               ) : (
                 <InputField
                   label="Full Name"
-                  value={formData.name}
+                  value={formData.name || ""}
                   onChange={(v) => setFormData({ ...formData, name: v })}
                 />
               )}
 
               <InputField
                 label="Email"
-                value={formData.email}
+                value={formData.email || ""}
                 onChange={(v) => setFormData({ ...formData, email: v })}
               />
               <InputField
                 label="Phone"
-                value={formData.phone}
+                value={formData.phone || ""}
                 onChange={(v) => setFormData({ ...formData, phone: v })}
               />
-
-              {/* Optional: add password change field */}
-              {/* <InputField label="New Password (optional)" type="password" ... /> */}
 
               <div className="flex gap-4 mt-4">
                 <button
@@ -240,13 +240,13 @@ export default function Profile() {
               ) : (
                 <>
                   <Info label="Full Name" value={profile.name} />
-                  <Info label="Role" value={profile.role} />
+                  <Info label="Role" value={profile.role || "customer"} />
                 </>
               )}
 
               <Info label="Email" value={profile.email} />
               <Info label="Phone" value={profile.phone || "—"} />
-              <Info label="ID" value={profile.id || profile._id} />
+              <Info label="ID" value={profile._id || profile.id} />
 
               <div className="flex gap-4 mt-6">
                 <button
@@ -270,7 +270,6 @@ export default function Profile() {
   );
 }
 
-// Reuse your Info & InputField components
 function Info({ label, value }) {
   return (
     <div>
