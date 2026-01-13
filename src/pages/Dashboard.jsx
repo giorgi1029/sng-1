@@ -9,7 +9,7 @@ import {
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import Header from "../components/Header";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 
 // ===== LEAFLET ICON FIX =====
 delete L.Icon.Default.prototype._getIconUrl;
@@ -26,57 +26,110 @@ export default function Dashboard() {
   const [businesses, setBusinesses] = useState([]);
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [mapLoading, setMapLoading] = useState(true);
   const navigate = useNavigate();
+  const location = useLocation(); // ← added for query params
 
   // ===== FILTERS =====
   const [search, setSearch] = useState("");
   const [serviceFilter, setServiceFilter] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
 
-  // ===== FETCH CARWASHES =====
+  // ===== HANDLE GOOGLE OAUTH REDIRECT + TOKEN STORAGE =====
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const tokenFromUrl = params.get("token");
+
+    if (tokenFromUrl) {
+      localStorage.setItem("token", tokenFromUrl);
+
+      // Optional: if you passed name/email in query (as suggested earlier)
+      const name = params.get("name");
+      const email = params.get("email");
+      if (name || email) {
+        localStorage.setItem(
+          "tempUser",
+          JSON.stringify({
+            name: decodeURIComponent(name || ""),
+            email: decodeURIComponent(email || ""),
+          })
+        );
+      }
+
+      // Clean URL – remove ?token=... etc.
+      navigate("/dashboard", { replace: true });
+    }
+  }, [location.search, navigate]);
+
+  // ===== FETCH CARWASHES (PUBLIC) =====
   useEffect(() => {
     fetch("https://car4wash-back.vercel.app/api/carwash")
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) throw new Error("Failed to load carwashes");
+        return res.json();
+      })
       .then(setBusinesses)
-      .catch(console.error)
-      .finally(() => setLoading(false));
+      .catch((err) => console.error("Carwashes fetch error:", err))
+      .finally(() => setMapLoading(false));
   }, []);
 
-  // ===== FETCH PROFILE =====
+  // ===== FETCH PROFILE (AUTHENTICATED) =====
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    const role = localStorage.getItem("role");
+    const fetchProfile = async () => {
+      const token = localStorage.getItem("token");
 
-    if (!token || !role) return;
+      if (!token) {
+        setLoading(false);
+        return;
+      }
 
-    const endpoint =
-      role === "carwash"
-        ? "https://car4wash-back.vercel.app/api/carwash/auth/me"
-        : "https://car4wash-back.vercel.app/api/users/me";
+      try {
+        // Try user endpoint first
+        let res = await fetch("https://car4wash-back.vercel.app/api/users/me", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
 
-    fetch(endpoint, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    })
-      .then((res) => res.json())
-      .then(setProfile)
-      .catch(console.error);
-  }, []);
+        if (res.status === 401 || !res.ok) {
+          // If 401, try carwash endpoint
+          res = await fetch("https://car4wash-back.vercel.app/api/carwash/auth/me", {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+        }
+
+        if (!res.ok) {
+          if (res.status === 401) {
+            localStorage.removeItem("token");
+            navigate("/login");
+            return;
+          }
+          throw new Error("Profile fetch failed");
+        }
+
+        const data = await res.json();
+        setProfile(data);
+
+        // Persist role for future quick checks
+        localStorage.setItem("role", data.role || "customer");
+      } catch (err) {
+        console.error("Profile fetch error:", err);
+        localStorage.removeItem("token");
+        localStorage.removeItem("role");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProfile();
+  }, [navigate]);
 
   // ===== OWNER / ADMIN CHECK =====
   const isOwnerOrAdmin = (business) => {
     if (!profile) return false;
 
     const ownerId =
-      typeof business.owner === "object"
-        ? business.owner?._id
-        : business.owner;
+      typeof business.owner === "object" ? business.owner?._id : business.owner;
 
-    return (
-      profile._id === ownerId ||
-      profile.role === "admin"
-    );
+    return profile._id === ownerId || profile.role === "admin";
   };
 
   // ===== DELETE =====
@@ -84,56 +137,46 @@ export default function Dashboard() {
     if (!window.confirm("Delete this carwash?")) return;
 
     const token = localStorage.getItem("token");
+    if (!token) return;
 
-    await fetch(
-      `https://car4wash-back.vercel.app/api/carwash/${id}`,
-      {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }
-    );
+    try {
+      const res = await fetch(
+        `https://car4wash-back.vercel.app/api/carwash/${id}`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
 
-    setBusinesses((prev) =>
-      prev.filter((b) => b._id !== id)
-    );
+      if (!res.ok) throw new Error("Delete failed");
+
+      setBusinesses((prev) => prev.filter((b) => b._id !== id));
+    } catch (err) {
+      console.error("Delete error:", err);
+      alert("Failed to delete carwash");
+    }
   };
 
   // ===== FILTER LOGIC =====
-  const filteredBusinesses = businesses.filter(
-    (b) => {
-      const matchesSearch =
-        b.businessName
-          .toLowerCase()
-          .includes(search.toLowerCase()) ||
-        b.location?.address
-          ?.toLowerCase()
-          .includes(search.toLowerCase());
+  const filteredBusinesses = businesses.filter((b) => {
+    const matchesSearch =
+      b.businessName?.toLowerCase().includes(search.toLowerCase()) ||
+      b.location?.address?.toLowerCase().includes(search.toLowerCase());
 
-      const matchesService = serviceFilter
-        ? b.services?.some((s) =>
-            s.name
-              .toLowerCase()
-              .includes(
-                serviceFilter.toLowerCase()
-              )
-          )
-        : true;
+    const matchesService = serviceFilter
+      ? b.services?.some((s) =>
+          s.name?.toLowerCase().includes(serviceFilter.toLowerCase())
+        )
+      : true;
 
-      const matchesPrice = maxPrice
-        ? b.services?.some(
-            (s) => Number(s.price) <= maxPrice
-          )
-        : true;
+    const matchesPrice = maxPrice
+      ? b.services?.some((s) => Number(s.price) <= Number(maxPrice))
+      : true;
 
-      return (
-        matchesSearch &&
-        matchesService &&
-        matchesPrice
-      );
-    }
-  );
+    return matchesSearch && matchesService && matchesPrice;
+  });
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -141,9 +184,15 @@ export default function Dashboard() {
 
       <main className="flex p-4 gap-4 h-[88vh]">
         {/* ===== MAP ===== */}
-        <section className="flex-1 bg-white rounded-3xl overflow-hidden">
+        <section className="flex-1 bg-white rounded-3xl overflow-hidden relative">
+          {mapLoading && (
+            <div className="absolute inset-0 flex items-center justify-center bg-gray-100/70 z-10">
+              <p className="text-gray-600">Loading map...</p>
+            </div>
+          )}
+
           <MapContainer
-            center={[41.7151, 44.8271]}
+            center={[41.7151, 44.8271]} // Tbilisi coords
             zoom={12}
             style={{ height: "100%", width: "100%" }}
           >
@@ -158,24 +207,18 @@ export default function Dashboard() {
             </LayersControl>
 
             {filteredBusinesses.map((b) => {
-              const coords =
-                b.location?.coordinates?.coordinates;
-              if (!coords) return null;
+              const coords = b.location?.coordinates?.coordinates;
+              if (!coords || !Array.isArray(coords) || coords.length < 2) return null;
 
               return (
                 <Marker
                   key={b._id}
-                  position={[
-                    coords[1],
-                    coords[0],
-                  ]}
+                  position={[coords[1], coords[0]]} // [lat, lng]
                 >
                   <Popup>
-                    <strong>
-                      {b.businessName}
-                    </strong>
+                    <strong>{b.businessName}</strong>
                     <br />
-                    {b.location?.address}
+                    {b.location?.address || "No address"}
                   </Popup>
                 </Marker>
               );
@@ -183,85 +226,73 @@ export default function Dashboard() {
           </MapContainer>
         </section>
 
-   {/* ===== LIST ===== */}
-<aside className="w-[420px] bg-gray-200 p-4 overflow-y-auto rounded-3xl">
-  <h2 className="text-xl font-bold mb-4">
-    All Carwashes
-  </h2>
+        {/* ===== LIST ===== */}
+        <aside className="w-[420px] bg-gray-200 p-4 overflow-y-auto rounded-3xl">
+          <h2 className="text-xl font-bold mb-4">All Carwashes</h2>
 
-  {/* Filters */}
-  <div className="space-y-2 mb-4">
-    <input
-      className="w-full p-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400"
-      placeholder="Search by name or address"
-      value={search}
-      onChange={(e) => setSearch(e.target.value)}
-    />
-    <input
-      className="w-full p-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400"
-      placeholder="Service (e.g. Interior wash)"
-      value={serviceFilter}
-      onChange={(e) => setServiceFilter(e.target.value)}
-    />
-    <input
-      className="w-full p-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400"
-      type="number"
-      placeholder="Max price"
-      value={maxPrice}
-      onChange={(e) => setMaxPrice(e.target.value)}
-    />
-  </div>
+          {/* Filters */}
+          <div className="space-y-3 mb-6">
+            <input
+              className="w-full p-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
+              placeholder="Search by name or address"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+            <input
+              className="w-full p-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
+              placeholder="Service (e.g. Interior wash)"
+              value={serviceFilter}
+              onChange={(e) => setServiceFilter(e.target.value)}
+            />
+            <input
+              className="w-full p-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
+              type="number"
+              placeholder="Max price (GEL)"
+              value={maxPrice}
+              onChange={(e) => setMaxPrice(e.target.value)}
+            />
+          </div>
 
-  {loading && (
-    <p className="text-center text-gray-500">
-      Loading carwashes...
-    </p>
-  )}
+          {loading && (
+            <p className="text-center text-gray-500">Loading profile & data...</p>
+          )}
 
-  {!loading && filteredBusinesses.length === 0 && (
-    <p className="text-center text-gray-500">
-      No carwashes found
-    </p>
-  )}
+          {!loading && filteredBusinesses.length === 0 && (
+            <p className="text-center text-gray-500">No carwashes found</p>
+          )}
 
-  {filteredBusinesses.map((b) => (
-    <div
-      key={b._id}
-      onClick={() => navigate(`/carwash/${b._id}`)}
-      className="bg-white p-4 rounded-2xl mb-4 shadow cursor-pointer
-                 hover:shadow-lg hover:scale-[1.01] transition"
-    >
-      <h3 className="font-bold text-lg">
-        {b.businessName}
-      </h3>
+          {filteredBusinesses.map((b) => (
+            <div
+              key={b._id}
+              onClick={() => navigate(`/carwash/${b._id}`)}
+              className="bg-white p-4 rounded-2xl mb-4 shadow cursor-pointer hover:shadow-lg hover:scale-[1.01] transition"
+            >
+              <h3 className="font-bold text-lg">{b.businessName}</h3>
+              <p className="text-sm text-gray-600 mb-2">
+                {b.location?.address || "No address"}
+              </p>
 
-      <p className="text-sm text-gray-600 mb-2">
-        {b.location?.address}
-      </p>
+              {b.services?.length > 0 && (
+                <p className="text-sm text-gray-500">
+                  Services: {b.services.length}
+                </p>
+              )}
 
-      {b.services?.length > 0 && (
-        <p className="text-sm text-gray-500">
-          Services: {b.services.length}
-        </p>
-      )}
-
-      {isOwnerOrAdmin(b) && (
-        <button
-          onClick={(e) => {
-            e.stopPropagation(); // 🚫 prevent navigation
-            handleDelete(b._id);
-          }}
-          className="mt-3 px-3 py-1 bg-red-500 hover:bg-red-600 text-white rounded-xl text-sm"
-        >
-          Delete
-        </button>
-      )}
-    </div>
-  ))}
-</aside>
-
+              {isOwnerOrAdmin(b) && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDelete(b._id);
+                  }}
+                  className="mt-3 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-xl text-sm font-medium transition"
+                >
+                  Delete
+                </button>
+              )}
+            </div>
+          ))}
+        </aside>
       </main>
     </div>
   );
 }
-  
