@@ -1,18 +1,19 @@
-// src/pages/Login.jsx
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import Cookies from 'js-cookie'
+
 export default function Login() {
   const navigate = useNavigate();
   const [loginData, setLoginData] = useState({ email: "", password: "" });
+  const [error, setError] = useState("");
 
   const handleChange = (e) => {
     setLoginData({ ...loginData, [e.target.name]: e.target.value });
   };
 
-
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError("");
+
     try {
       const res = await fetch("https://car4wash-back.vercel.app/api/users/login", {
         method: "POST",
@@ -23,15 +24,16 @@ export default function Login() {
       const data = await res.json();
 
       if (!res.ok) {
-        alert(data.message || "Login failed");
+        setError(data.message || "Login failed");
         return;
       }
 
-      Cookies.set('token', data.token); // save JWT
-      navigate("/dashboard"); // redirect to dashboard
+      localStorage.setItem("token", data.token);
+      localStorage.setItem("user", JSON.stringify(data.user)); // optional – for quick access
+      navigate("/dashboard");
     } catch (err) {
       console.error(err);
-      alert("Something went wrong. Try again.");
+      setError("Something went wrong. Try again.");
     }
   };
 
@@ -41,6 +43,12 @@ export default function Login() {
       <p className="text-gray-700 text-lg mb-6">Log in to your account</p>
 
       <div className="w-full max-w-md backdrop-blur-xl bg-white/60 border border-white/50 rounded-2xl shadow-xl p-8">
+        {error && (
+          <div className="bg-red-100 border border-red-300 text-red-700 px-4 py-3 rounded mb-4 text-sm">
+            {error}
+          </div>
+        )}
+
         <form className="space-y-4" onSubmit={handleSubmit}>
           <input
             type="email"

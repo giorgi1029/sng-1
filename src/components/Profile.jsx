@@ -10,50 +10,115 @@ export default function Profile() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    fetch("https://car4wash-back.vercel.app/api/users/me", {
-      credentials: "include",
-    })
-      .then((res) => {
-        if (!res.ok) throw new Error("Unauthorized");
-        return res.json();
-      })
-      .then((data) => {
+    const fetchUser = async () => {
+      const token = localStorage.getItem("token");
+
+      if (!token) {
+        setLoading(false);
+        setUser(null);
+        return;
+      }
+
+      try {
+        const res = await fetch("https://car4wash-back.vercel.app/api/users/me", {
+          method: "GET",
+          headers: {
+            "Authorization": `Bearer ${token}`,
+            "Accept": "application/json",
+          },
+        });
+
+        if (res.status === 401) {
+          // Token invalid/expired → clear it and treat as logged out
+          localStorage.removeItem("token");
+          setUser(null);
+          return;
+        }
+
+        if (!res.ok) {
+          throw new Error("Failed to fetch profile");
+        }
+
+        const data = await res.json();
         setUser(data);
-        setFormData({ name: data.name, email: data.email, phone: data.phone });
-      })
-      .catch(() => setUser(null))
-      .finally(() => setLoading(false));
+        setFormData({
+          name: data.name || "",
+          email: data.email || "",
+          phone: data.phone || "",
+        });
+      } catch (err) {
+        console.error("Profile fetch error:", err);
+        localStorage.removeItem("token");
+        setUser(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUser();
   }, []);
 
   const handleUpdate = async () => {
-    try {
-      const res = await fetch(
-        "https://car4wash-back.vercel.app/api/users/update",
-        {
-          method: "PUT",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(formData),
-        }
-      );
+    const token = localStorage.getItem("token");
+    if (!token) {
+      alert("You must be logged in to update your profile");
+      navigate("/login");
+      return;
+    }
 
-      if (!res.ok) throw new Error("Update failed");
+    try {
+      const res = await fetch("https://car4wash-back.vercel.app/api/users/update", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
+        body: JSON.stringify(formData),
+      });
+
+      if (res.status === 401) {
+        localStorage.removeItem("token");
+        alert("Session expired. Please log in again.");
+        navigate("/login");
+        return;
+      }
+
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.message || "Update failed");
+      }
 
       const data = await res.json();
       setUser(data.user);
       setEditing(false);
       alert("Profile updated successfully!");
     } catch (err) {
-      alert(err.message);
+      alert(err.message || "Something went wrong");
     }
   };
 
   const handleLogout = async () => {
-    await fetch("https://car4wash-back.vercel.app/api/users/logout", {
-      method: "POST",
-      credentials: "include",
-    });
-    navigate("/login"); // 🔥 redirect to sign in page
+    const token = localStorage.getItem("token");
+
+    // Optional: call backend logout (mostly for symmetry / future blacklisting)
+    if (token) {
+      try {
+        await fetch("https://car4wash-back.vercel.app/api/users/logout", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${token}`,
+          },
+        });
+      } catch (err) {
+        console.warn("Logout request failed:", err);
+        // continue anyway — we still clear local token
+      }
+    }
+
+    localStorage.removeItem("token");
+    // localStorage.removeItem("user"); // if you stored it
+
+    navigate("/login");
   };
 
   if (loading) {
