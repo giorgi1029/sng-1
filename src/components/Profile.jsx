@@ -14,9 +14,10 @@ export default function Profile() {
   useEffect(() => {
     const fetchProfile = async () => {
       const token = localStorage.getItem("token");
-      console.log("[PROFILE] Token from storage:", token ? "exists" : "missing");
+      console.log("[PROFILE DEBUG] Token from localStorage:", token ? `${token.substring(0, 20)}...` : "MISSING");
 
       if (!token) {
+        console.log("[PROFILE DEBUG] No token found → showing not logged in");
         setLoading(false);
         return;
       }
@@ -24,16 +25,21 @@ export default function Profile() {
       try {
         setError(null);
 
-        // Try customer first
+        // Common headers with Bearer token
+        const headers = {
+          Authorization: `Bearer ${token}`,
+          Accept: "application/json",
+        };
+
+        console.log("[PROFILE DEBUG] Sending request with headers:", headers);
+
+        // 1. Try customer endpoint first
         let res = await fetch("https://car4wash-back.vercel.app/api/users/me", {
           method: "GET",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            Accept: "application/json",
-          },
+          headers,
         });
 
-        console.log("[PROFILE] /users/me status:", res.status);
+        console.log("[PROFILE DEBUG] /users/me status:", res.status);
 
         let data;
         let detectedType = null;
@@ -41,26 +47,25 @@ export default function Profile() {
         if (res.ok) {
           data = await res.json();
           detectedType = "customer";
-          console.log("[PROFILE] Customer data:", data);
+          console.log("[PROFILE DEBUG] Customer profile loaded:", data);
         } else {
-          // Try carwash
+          // 2. Try carwash endpoint
+          console.log("[PROFILE DEBUG] /users/me failed → trying carwash endpoint");
+
           res = await fetch("https://car4wash-back.vercel.app/api/carwash/auth/me", {
             method: "GET",
-            headers: {
-              Authorization: `Bearer ${token}`,
-              Accept: "application/json",
-            },
+            headers,
           });
 
-          console.log("[PROFILE] /carwash/auth/me status:", res.status);
+          console.log("[PROFILE DEBUG] /carwash/auth/me status:", res.status);
 
           if (res.ok) {
             data = await res.json();
             detectedType = "carwash";
-            console.log("[PROFILE] Carwash data:", data);
+            console.log("[PROFILE DEBUG] Carwash profile loaded:", data);
           } else {
             if (res.status === 401) {
-              console.log("[PROFILE] 401 → clearing token");
+              console.log("[PROFILE DEBUG] 401 → clearing token and redirecting");
               localStorage.removeItem("token");
               localStorage.removeItem("userType");
               navigate("/login");
@@ -71,30 +76,30 @@ export default function Profile() {
           }
         }
 
-        // Normalize data (handle both flat and nested {carwash: {...}})
-        const normalized = detectedType === "carwash" && data.carwash ? data.carwash : data;
+        // Normalize profile (handle both flat and { carwash: {...} } shapes)
+        const normalizedProfile = detectedType === "carwash" && data.carwash ? data.carwash : data;
 
         setUserType(detectedType);
         localStorage.setItem("userType", detectedType);
-        setProfile(normalized);
+        setProfile(normalizedProfile);
 
-        // Form data
+        // Set initial form data based on type
         if (detectedType === "customer") {
           setFormData({
-            name: normalized.name || "",
-            email: normalized.email || "",
-            phone: normalized.phone || "",
+            name: normalizedProfile.name || "",
+            email: normalizedProfile.email || "",
+            phone: normalizedProfile.phone || "",
           });
         } else {
           setFormData({
-            businessName: normalized.businessName || "",
-            ownerName: normalized.ownerName || "",
-            email: normalized.email || "",
-            phone: normalized.phone || "",
+            businessName: normalizedProfile.businessName || "",
+            ownerName: normalizedProfile.ownerName || "",
+            email: normalizedProfile.email || "",
+            phone: normalizedProfile.phone || "",
           });
         }
       } catch (err) {
-        console.error("[PROFILE] Fetch error:", err.message);
+        console.error("[PROFILE DEBUG] Fetch error:", err.message);
         setError(err.message || "Failed to load profile");
         localStorage.removeItem("token");
         localStorage.removeItem("userType");
