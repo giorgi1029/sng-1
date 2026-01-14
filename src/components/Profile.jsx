@@ -14,6 +14,8 @@ export default function Profile() {
   useEffect(() => {
     const fetchProfile = async () => {
       const token = localStorage.getItem("token");
+      console.log("[PROFILE] Token from storage:", token ? "exists" : "missing");
+
       if (!token) {
         setLoading(false);
         return;
@@ -22,68 +24,77 @@ export default function Profile() {
       try {
         setError(null);
 
-        // 1. Try customer endpoint
+        // Try customer first
         let res = await fetch("https://car4wash-back.vercel.app/api/users/me", {
+          method: "GET",
           headers: {
             Authorization: `Bearer ${token}`,
             Accept: "application/json",
           },
         });
 
+        console.log("[PROFILE] /users/me status:", res.status);
+
         let data;
-        let type = null;
+        let detectedType = null;
 
         if (res.ok) {
           data = await res.json();
-          type = "customer";
+          detectedType = "customer";
+          console.log("[PROFILE] Customer data:", data);
         } else {
-          // 2. Try carwash endpoint
+          // Try carwash
           res = await fetch("https://car4wash-back.vercel.app/api/carwash/auth/me", {
+            method: "GET",
             headers: {
               Authorization: `Bearer ${token}`,
               Accept: "application/json",
             },
           });
 
+          console.log("[PROFILE] /carwash/auth/me status:", res.status);
+
           if (res.ok) {
             data = await res.json();
-            type = "carwash";
+            detectedType = "carwash";
+            console.log("[PROFILE] Carwash data:", data);
           } else {
             if (res.status === 401) {
+              console.log("[PROFILE] 401 → clearing token");
               localStorage.removeItem("token");
               localStorage.removeItem("userType");
               navigate("/login");
               return;
             }
-            throw new Error(`Profile fetch failed: ${res.status} ${res.statusText}`);
+            const errorText = await res.text();
+            throw new Error(`Both endpoints failed: ${res.status} - ${errorText}`);
           }
         }
 
-        // Now we have data & type
-        setUserType(type);
-        localStorage.setItem("userType", type);
+        // Normalize data (handle both flat and nested {carwash: {...}})
+        const normalized = detectedType === "carwash" && data.carwash ? data.carwash : data;
 
-        // Normalize profile (unwrap carwash nested object)
-        const normalizedProfile = type === "carwash" ? data.carwash : data;
-        setProfile(normalizedProfile);
+        setUserType(detectedType);
+        localStorage.setItem("userType", detectedType);
+        setProfile(normalized);
 
-        // Set form data
-        if (type === "customer") {
+        // Form data
+        if (detectedType === "customer") {
           setFormData({
-            name: normalizedProfile.name || "",
-            email: normalizedProfile.email || "",
-            phone: normalizedProfile.phone || "",
+            name: normalized.name || "",
+            email: normalized.email || "",
+            phone: normalized.phone || "",
           });
         } else {
           setFormData({
-            businessName: normalizedProfile.businessName || "",
-            ownerName: normalizedProfile.ownerName || "",
-            email: normalizedProfile.email || "",
-            phone: normalizedProfile.phone || "",
+            businessName: normalized.businessName || "",
+            ownerName: normalized.ownerName || "",
+            email: normalized.email || "",
+            phone: normalized.phone || "",
           });
         }
       } catch (err) {
-        console.error("Profile fetch error:", err);
+        console.error("[PROFILE] Fetch error:", err.message);
         setError(err.message || "Failed to load profile");
         localStorage.removeItem("token");
         localStorage.removeItem("userType");
@@ -131,7 +142,7 @@ export default function Profile() {
       }
 
       const data = await res.json();
-      const updated = userType === "carwash" ? data.carwash : data.user;
+      const updated = userType === "carwash" && data.carwash ? data.carwash : data;
       setProfile(updated);
       setEditing(false);
       alert("Profile updated successfully!");
@@ -140,7 +151,7 @@ export default function Profile() {
     }
   };
 
-  const handleLogout = async () => {
+  const handleLogout = () => {
     localStorage.clear();
     navigate("/login");
   };
@@ -156,8 +167,16 @@ export default function Profile() {
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <p className="text-red-600 text-lg">{error}</p>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-6">
+        <div className="bg-red-50 border border-red-200 rounded-xl p-6 max-w-md text-center">
+          <p className="text-red-700 text-lg font-medium">{error}</p>
+          <button
+            onClick={() => navigate("/login")}
+            className="mt-4 px-6 py-2 bg-red-600 text-white rounded-xl hover:bg-red-700"
+          >
+            Go to Login
+          </button>
+        </div>
       </div>
     );
   }
@@ -165,7 +184,7 @@ export default function Profile() {
   if (!profile || !userType) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <p className="text-gray-500 text-lg">You are not logged in.</p>
+        <p className="text-gray-600 text-xl">You are not logged in.</p>
       </div>
     );
   }
@@ -175,14 +194,14 @@ export default function Profile() {
   return (
     <div className="min-h-screen bg-gray-50">
       <Header />
-      <main className="max-w-3xl mx-auto p-6">
-        <div className="bg-white rounded-3xl shadow-lg p-8">
-          <h1 className="text-3xl font-bold mb-6 text-gray-800">
+      <main className="max-w-4xl mx-auto p-6">
+        <div className="bg-white rounded-3xl shadow-xl p-8">
+          <h1 className="text-3xl font-bold mb-8 text-gray-800">
             {isCarwash ? "Business Profile" : "User Profile"}
           </h1>
 
           {editing ? (
-            <div className="space-y-4">
+            <div className="space-y-6">
               {isCarwash ? (
                 <>
                   <InputField
@@ -209,29 +228,30 @@ export default function Profile() {
                 value={formData.email || ""}
                 onChange={(v) => setFormData({ ...formData, email: v })}
               />
+
               <InputField
                 label="Phone"
                 value={formData.phone || ""}
                 onChange={(v) => setFormData({ ...formData, phone: v })}
               />
 
-              <div className="flex gap-4 mt-4">
+              <div className="flex gap-4 mt-8">
                 <button
                   onClick={handleUpdate}
-                  className="px-6 py-2 bg-green-500 text-white rounded-xl hover:bg-green-600 transition"
+                  className="px-8 py-3 bg-green-600 text-white rounded-xl hover:bg-green-700 transition font-medium"
                 >
-                  Save
+                  Save Changes
                 </button>
                 <button
                   onClick={() => setEditing(false)}
-                  className="px-6 py-2 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 transition"
+                  className="px-8 py-3 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 transition font-medium"
                 >
                   Cancel
                 </button>
               </div>
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-6">
               {isCarwash ? (
                 <>
                   <Info label="Business Name" value={profile.businessName} />
@@ -240,24 +260,24 @@ export default function Profile() {
               ) : (
                 <>
                   <Info label="Full Name" value={profile.name} />
-                  <Info label="Role" value={profile.role || "customer"} />
+                  <Info label="Role" value={profile.role || "Customer"} />
                 </>
               )}
 
               <Info label="Email" value={profile.email} />
-              <Info label="Phone" value={profile.phone || "—"} />
+              <Info label="Phone" value={profile.phone || "Not provided"} />
               <Info label="ID" value={profile._id || profile.id} />
 
-              <div className="flex gap-4 mt-6">
+              <div className="flex gap-4 mt-10">
                 <button
                   onClick={() => setEditing(true)}
-                  className="px-6 py-2 bg-blue-500 text-white rounded-xl hover:bg-blue-600 transition"
+                  className="px-8 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition font-medium"
                 >
                   Edit Profile
                 </button>
                 <button
                   onClick={handleLogout}
-                  className="px-6 py-2 bg-red-500 text-white rounded-xl hover:bg-red-600 transition"
+                  className="px-8 py-3 bg-red-600 text-white rounded-xl hover:bg-red-700 transition font-medium"
                 >
                   Logout
                 </button>
@@ -272,9 +292,9 @@ export default function Profile() {
 
 function Info({ label, value }) {
   return (
-    <div>
-      <p className="text-sm text-gray-400">{label}</p>
-      <p className="font-semibold text-gray-700">{value || "—"}</p>
+    <div className="py-3 border-b border-gray-100 last:border-b-0">
+      <p className="text-sm text-gray-500 font-medium">{label}</p>
+      <p className="mt-1 text-gray-900 font-semibold">{value || "—"}</p>
     </div>
   );
 }
@@ -282,9 +302,11 @@ function Info({ label, value }) {
 function InputField({ label, value, onChange }) {
   return (
     <div>
-      <p className="text-sm text-gray-500">{label}</p>
+      <label className="block text-sm font-medium text-gray-700 mb-1">
+        {label}
+      </label>
       <input
-        className="w-full border border-gray-300 px-3 py-2 rounded-lg mt-1 focus:outline-none focus:ring-2 focus:ring-blue-400"
+        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
         value={value}
         onChange={(e) => onChange(e.target.value)}
       />
