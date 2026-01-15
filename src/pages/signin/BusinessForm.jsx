@@ -24,10 +24,13 @@ export default function BusinessForm() {
   const navigate = useNavigate();
 
   const [services, setServices] = useState([{ name: "", price: "" }]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formError, setFormError] = useState("");
 
   const [form, setForm] = useState({
-    name: "",
-    location: "", // REAL address
+    businessName: "",
+    ownerName: "",
+    location: "",
     lat: null,
     lng: null,
     email: "",
@@ -50,6 +53,7 @@ export default function BusinessForm() {
   };
 
   const handleRemoveService = (index) => {
+    if (services.length === 1) return;
     const updated = [...services];
     updated.splice(index, 1);
     setServices(updated);
@@ -58,6 +62,7 @@ export default function BusinessForm() {
   // ================= FORM =================
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
+    setFormError("");
   };
 
   // ================= MAP CLICK =================
@@ -67,7 +72,6 @@ export default function BusinessForm() {
         const { lat, lng } = e.latlng;
 
         try {
-          // Reverse geocode (OpenStreetMap)
           const res = await fetch(
             `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`
           );
@@ -93,33 +97,43 @@ export default function BusinessForm() {
   // ================= SUBMIT =================
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setFormError("");
 
-    if (form.lat == null || form.lng == null) {
-      alert("Please select a location on the map.");
+    if (!form.lat || !form.lng) {
+      setFormError("Please select a location on the map.");
       return;
     }
 
-    const cleanedServices = services.map((s) => ({
-      name: s.name.trim(),
-      price: Number(s.price),
-    }));
+    if (!form.businessName.trim() || !form.ownerName.trim()) {
+      setFormError("Business name and owner name are required.");
+      return;
+    }
+
+    const validServices = services.filter(
+      (s) => s.name.trim() !== "" && !isNaN(Number(s.price)) && Number(s.price) > 0
+    );
+
+    if (validServices.length === 0) {
+      setFormError("Please add at least one valid service.");
+      return;
+    }
 
     const payload = {
-      businessName: form.name,
-      ownerName: form.name,
-      email: form.email,
+      businessName: form.businessName.trim(),
+      ownerName: form.ownerName.trim(),
+      email: form.email.trim(),
       password: form.password,
-
       location: {
-        address: form.location,
+        address: form.location.trim(),
         coordinates: {
           type: "Point",
           coordinates: [form.lng, form.lat],
         },
       },
-
-      services: cleanedServices,
-
+      services: validServices.map((s) => ({
+        name: s.name.trim(),
+        price: Number(s.price),
+      })),
       workingHours: {
         open: form.open,
         close: form.close,
@@ -127,6 +141,8 @@ export default function BusinessForm() {
     };
 
     console.log("Submitting payload:", JSON.stringify(payload, null, 2));
+
+    setIsSubmitting(true);
 
     try {
       const res = await fetch(
@@ -143,15 +159,25 @@ export default function BusinessForm() {
       const data = await res.json();
 
       if (!res.ok) {
-        alert(data.message || "Registration failed");
+        setFormError(data.message || "Registration failed");
         return;
       }
 
-      alert("Carwash registered successfully!");
-      navigate("/dashboard");
+      // Auto-login after success
+      if (data.token) {
+        localStorage.setItem("token", data.token);
+        localStorage.setItem("userType", "carwash");
+        alert("Carwash registered successfully! You are now logged in.");
+        navigate("/dashboard");
+      } else {
+        alert("Carwash registered successfully!");
+        navigate("/carwashlogin");
+      }
     } catch (err) {
       console.error(err);
-      alert("Something went wrong.");
+      setFormError("Something went wrong. Please try again.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -184,11 +210,27 @@ export default function BusinessForm() {
 
       {/* ================= FORM ================= */}
       <form onSubmit={handleSubmit} className="space-y-3 max-w-md mx-auto">
+        {formError && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-center text-sm">
+            {formError}
+          </div>
+        )}
+
         <input
           type="text"
-          name="name"
+          name="businessName"
           placeholder="Carwash Name"
-          value={form.name}
+          value={form.businessName}
+          onChange={handleChange}
+          className="w-full p-3 border border-gray-300 rounded-xl bg-white/90"
+          required
+        />
+
+        <input
+          type="text"
+          name="ownerName"
+          placeholder="Owner Full Name"
+          value={form.ownerName}
           onChange={handleChange}
           className="w-full p-3 border border-gray-300 rounded-xl bg-white/90"
           required
@@ -286,22 +328,26 @@ export default function BusinessForm() {
         </div>
 
         <button
-  type="submit"
-  className="w-full py-3 rounded-xl bg-blue-600 text-white font-semibold"
->
-  Register Carwash
-</button>
+          type="submit"
+          disabled={isSubmitting}
+          className={`w-full py-3 rounded-xl text-white font-semibold transition ${
+            isSubmitting
+              ? "bg-blue-400 cursor-not-allowed"
+              : "bg-blue-600 hover:bg-blue-700"
+          }`}
+        >
+          {isSubmitting ? "Registering..." : "Register Carwash"}
+        </button>
 
-<div className="text-gray-700 text-sm mt-4 text-center">
-  Already have a carwash account?{" "}
-  <span
-    className="text-blue-600 font-semibold cursor-pointer hover:underline"
-    onClick={() => navigate("/carwashlogin")}
-  >
-    Log In
-  </span>
-</div>
-
+        <div className="text-gray-700 text-sm mt-4 text-center">
+          Already have a carwash account?{" "}
+          <span
+            className="text-blue-600 font-semibold cursor-pointer hover:underline"
+            onClick={() => navigate("/carwashlogin")}
+          >
+            Log In
+          </span>
+        </div>
       </form>
     </>
   );

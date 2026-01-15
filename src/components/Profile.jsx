@@ -4,107 +4,111 @@ import Header from "../components/Header";
 
 export default function Profile() {
   const [profile, setProfile] = useState(null);
-  const [userType, setUserType] = useState(null); // "customer" | "carwash" | null
+  const [userType, setUserType] = useState(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [formData, setFormData] = useState({});
   const [error, setError] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadedImages, setUploadedImages] = useState([]);
   const navigate = useNavigate();
 
   useEffect(() => {
     const fetchProfile = async () => {
       const token = localStorage.getItem("token");
-      console.log("[PROFILE DEBUG] Token from localStorage:", token ? `${token.substring(0, 20)}...` : "MISSING");
+      const storedType = localStorage.getItem("userType");
+
+      console.log("[PROFILE] Token:", token ? token.substring(0, 35) + "..." : "MISSING");
+      console.log("[PROFILE] Stored userType:", storedType || "not set");
 
       if (!token) {
-        console.log("[PROFILE DEBUG] No token found → showing not logged in");
         setLoading(false);
         return;
       }
 
+      let endpoint = "https://car4wash-back.vercel.app/api/users/me";
+      if (storedType === "carwash") {
+        endpoint = "https://car4wash-back.vercel.app/api/carwash/auth/me";
+      }
+
       try {
-        setError(null);
-
-        // Common headers with Bearer token
-        const headers = {
-          Authorization: `Bearer ${token}`,
-          Accept: "application/json",
-        };
-
-        console.log("[PROFILE DEBUG] Sending request with headers:", headers);
-
-        // 1. Try customer endpoint first
-        let res = await fetch("https://car4wash-back.vercel.app/api/users/me", {
-          method: "GET",
-          headers,
+        const res = await fetch(endpoint, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: "application/json",
+          },
         });
 
-        console.log("[PROFILE DEBUG] /users/me status:", res.status);
+        console.log(`[PROFILE] ${endpoint.split("/").pop()} → ${res.status}`);
 
-        let data;
-        let detectedType = null;
+        if (!res.ok) {
+          if (res.status === 401 || res.status === 403) {
+            console.log("[PROFILE] 401/403 → clearing session");
+            localStorage.removeItem("token");
+            localStorage.removeItem("userType");
+            navigate("/login", { replace: true });
+            return;
+          }
 
-        if (res.ok) {
-          data = await res.json();
-          detectedType = "customer";
-          console.log("[PROFILE DEBUG] Customer profile loaded:", data);
-        } else {
-          // 2. Try carwash endpoint
-          console.log("[PROFILE DEBUG] /users/me failed → trying carwash endpoint");
+          // Fallback if we tried users/me
+          if (storedType !== "carwash") {
+            console.log("[PROFILE] users/me failed → trying carwash/me");
+            const fallbackRes = await fetch(
+              "https://car4wash-back.vercel.app/api/carwash/auth/me",
+              {
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                  Accept: "application/json",
+                },
+              }
+            );
 
-          res = await fetch("https://car4wash-back.vercel.app/api/carwash/auth/me", {
-            method: "GET",
-            headers,
-          });
+            console.log("[PROFILE] carwash/me fallback →", fallbackRes.status);
 
-          console.log("[PROFILE DEBUG] /carwash/auth/me status:", res.status);
-
-          if (res.ok) {
-            data = await res.json();
-            detectedType = "carwash";
-            console.log("[PROFILE DEBUG] Carwash profile loaded:", data);
-          } else {
-            if (res.status === 401) {
-              console.log("[PROFILE DEBUG] 401 → clearing token and redirecting");
-              localStorage.removeItem("token");
-              localStorage.removeItem("userType");
-              navigate("/login");
+            if (fallbackRes.ok) {
+              const data = await fallbackRes.json();
+              const normalized = data.carwash || data;
+              finishProfile("carwash", normalized);
               return;
             }
-            const errorText = await res.text();
-            throw new Error(`Both endpoints failed: ${res.status} - ${errorText}`);
           }
+
+          const errText = await res.text();
+          throw new Error(`Profile load failed: ${res.status} - ${errText}`);
         }
 
-        // Normalize profile (handle both flat and { carwash: {...} } shapes)
-        const normalizedProfile = detectedType === "carwash" && data.carwash ? data.carwash : data;
+        const data = await res.json();
+        const detected = storedType || (data.businessName ? "carwash" : "customer");
+        const normalized = detected === "carwash" && data.carwash ? data.carwash : data;
 
-        setUserType(detectedType);
-        localStorage.setItem("userType", detectedType);
-        setProfile(normalizedProfile);
-
-        // Set initial form data based on type
-        if (detectedType === "customer") {
-          setFormData({
-            name: normalizedProfile.name || "",
-            email: normalizedProfile.email || "",
-            phone: normalizedProfile.phone || "",
-          });
-        } else {
-          setFormData({
-            businessName: normalizedProfile.businessName || "",
-            ownerName: normalizedProfile.ownerName || "",
-            email: normalizedProfile.email || "",
-            phone: normalizedProfile.phone || "",
-          });
-        }
+        finishProfile(detected, normalized);
       } catch (err) {
-        console.error("[PROFILE DEBUG] Fetch error:", err.message);
+        console.error("[PROFILE] Error:", err.message);
         setError(err.message || "Failed to load profile");
-        localStorage.removeItem("token");
-        localStorage.removeItem("userType");
       } finally {
         setLoading(false);
+      }
+    };
+
+    const finishProfile = (type, prof) => {
+      setUserType(type);
+      localStorage.setItem("userType", type);
+      setProfile(prof);
+      setUploadedImages(Array.isArray(prof?.images) ? prof.images : []);
+      
+      if (type === "customer") {
+        setFormData({
+          name: prof.name || "",
+          email: prof.email || "",
+          phone: prof.phone || "",
+        });
+      } else {
+        setFormData({
+          businessName: prof.businessName || "",
+          ownerName: prof.ownerName || "",
+          email: prof.email || "",
+          phone: prof.phone || "",
+        });
       }
     };
 
@@ -113,11 +117,7 @@ export default function Profile() {
 
   const handleUpdate = async () => {
     const token = localStorage.getItem("token");
-    if (!token || !userType) {
-      alert("Session invalid. Please log in again.");
-      navigate("/login");
-      return;
-    }
+    if (!token || !userType) return navigate("/login");
 
     const endpoint =
       userType === "carwash"
@@ -134,9 +134,8 @@ export default function Profile() {
         body: JSON.stringify(formData),
       });
 
-      if (res.status === 401) {
-        localStorage.removeItem("token");
-        alert("Session expired. Please log in again.");
+      if (res.status === 401 || res.status === 403) {
+        localStorage.clear();
         navigate("/login");
         return;
       }
@@ -148,11 +147,86 @@ export default function Profile() {
 
       const data = await res.json();
       const updated = userType === "carwash" && data.carwash ? data.carwash : data;
+
       setProfile(updated);
       setEditing(false);
       alert("Profile updated successfully!");
     } catch (err) {
       alert(err.message || "Update failed");
+    }
+  };
+
+  const handleImageUpload = async (e) => {
+    const files = e.target.files;
+    if (!files?.length) return;
+
+    setUploading(true);
+
+    const formData = new FormData();
+    for (let i = 0; i < files.length; i++) {
+      formData.append("images", files[i]);
+    }
+
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) throw new Error("No authentication token found");
+
+      const res = await fetch(
+        "https://car4wash-back.vercel.app/api/carwash/auth/upload-images",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          body: formData,
+        }
+      );
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || `Upload failed (${res.status})`);
+      }
+
+      const data = await res.json();
+      setUploadedImages(Array.isArray(data.images) ? data.images : []);
+      alert("Photos uploaded successfully!");
+    } catch (err) {
+      console.error("[UPLOAD ERROR]", err);
+      alert(err.message || "Failed to upload photos");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDeleteImage = async (url) => {
+    if (!window.confirm("Delete this photo?")) return;
+
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) throw new Error("No authentication token");
+
+      const res = await fetch(
+        "https://car4wash-back.vercel.app/api/carwash/auth/delete-image",
+        {
+          method: "DELETE",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ imageUrl: url }),
+        }
+      );
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || "Delete failed");
+      }
+
+      const data = await res.json();
+      setUploadedImages(Array.isArray(data.images) ? data.images : []);
+    } catch (err) {
+      console.error("[DELETE ERROR]", err);
+      alert(err.message || "Could not delete photo");
     }
   };
 
@@ -272,6 +346,56 @@ export default function Profile() {
               <Info label="Email" value={profile.email} />
               <Info label="Phone" value={profile.phone || "Not provided"} />
               <Info label="ID" value={profile._id || profile.id} />
+
+              {isCarwash && (
+                <div className="mt-10 border-t pt-8">
+                  <h2 className="text-xl font-semibold mb-4">Service Photos</h2>
+
+                  <div className="mb-6">
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      multiple
+                      onChange={handleImageUpload}
+                      disabled={uploading}
+                      className="block w-full text-sm text-gray-500
+                        file:mr-4 file:py-2 file:px-4
+                        file:rounded-full file:border-0
+                        file:text-sm file:font-semibold
+                        file:bg-blue-50 file:text-blue-700
+                        hover:file:bg-blue-100
+                        cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                    />
+                    {uploading && (
+                      <p className="text-blue-600 mt-2 text-sm">Uploading photos...</p>
+                    )}
+                  </div>
+
+                  {uploadedImages.length > 0 ? (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                      {uploadedImages.map((url, i) => (
+                        <div key={i} className="relative group">
+                          <img
+                            src={url}
+                            alt={`Service photo ${i + 1}`}
+                            className="w-full h-40 object-cover rounded-xl shadow-sm transition-transform group-hover:scale-[1.02]"
+                          />
+                          <button
+                            onClick={() => handleDeleteImage(url)}
+                            className="absolute top-2 right-2 bg-red-600 text-white rounded-full w-7 h-7 flex items-center justify-center text-sm opacity-0 group-hover:opacity-100 transition shadow-md hover:bg-red-700"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-gray-500 text-center py-8 italic">
+                      No photos uploaded yet
+                    </p>
+                  )}
+                </div>
+              )}
 
               <div className="flex gap-4 mt-10">
                 <button
