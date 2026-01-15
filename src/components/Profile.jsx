@@ -11,6 +11,7 @@ export default function Profile() {
   const [error, setError] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [uploadedImages, setUploadedImages] = useState([]);
+  const [selectedImage, setSelectedImage] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -50,7 +51,7 @@ export default function Profile() {
             return;
           }
 
-          // Fallback if we tried users/me
+          // Fallback attempt
           if (storedType !== "carwash") {
             console.log("[PROFILE] users/me failed → trying carwash/me");
             const fallbackRes = await fetch(
@@ -95,7 +96,7 @@ export default function Profile() {
       localStorage.setItem("userType", type);
       setProfile(prof);
       setUploadedImages(Array.isArray(prof?.images) ? prof.images : []);
-      
+
       if (type === "customer") {
         setFormData({
           name: prof.name || "",
@@ -235,6 +236,14 @@ export default function Profile() {
     navigate("/login");
   };
 
+  const openLargeImage = (url) => {
+    setSelectedImage(url);
+  };
+
+  const closeLargeImage = () => {
+    setSelectedImage(null);
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -273,8 +282,17 @@ export default function Profile() {
   return (
     <div className="min-h-screen bg-gray-50">
       <Header />
+
       <main className="max-w-4xl mx-auto p-6">
         <div className="bg-white rounded-3xl shadow-xl p-8">
+          {/* Back Button */}
+          <button
+            onClick={() => navigate(-1)}
+            className="mb-6 px-5 py-2 bg-gray-200 hover:bg-gray-300 rounded-xl text-sm font-medium transition flex items-center gap-2"
+          >
+            ← Back
+          </button>
+
           <h1 className="text-3xl font-bold mb-8 text-gray-800">
             {isCarwash ? "Business Profile" : "User Profile"}
           </h1>
@@ -317,13 +335,15 @@ export default function Profile() {
               <div className="flex gap-4 mt-8">
                 <button
                   onClick={handleUpdate}
-                  className="px-8 py-3 bg-green-600 text-white rounded-xl hover:bg-green-700 transition font-medium"
+                  disabled={uploading}
+                  className="px-8 py-3 bg-green-600 text-white rounded-xl hover:bg-green-700 transition font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Save Changes
                 </button>
                 <button
                   onClick={() => setEditing(false)}
-                  className="px-8 py-3 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 transition font-medium"
+                  disabled={uploading}
+                  className="px-8 py-3 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 transition font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Cancel
                 </button>
@@ -367,22 +387,31 @@ export default function Profile() {
                         cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                     />
                     {uploading && (
-                      <p className="text-blue-600 mt-2 text-sm">Uploading photos...</p>
+                      <p className="text-blue-600 mt-2 text-sm animate-pulse">
+                        Uploading photos...
+                      </p>
                     )}
                   </div>
 
                   {uploadedImages.length > 0 ? (
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                       {uploadedImages.map((url, i) => (
-                        <div key={i} className="relative group">
+                        <div
+                          key={i}
+                          className="relative group cursor-pointer rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow"
+                          onClick={() => openLargeImage(url)}
+                        >
                           <img
                             src={url}
                             alt={`Service photo ${i + 1}`}
-                            className="w-full h-40 object-cover rounded-xl shadow-sm transition-transform group-hover:scale-[1.02]"
+                            className="w-full h-40 object-cover transition-transform group-hover:scale-105 duration-300"
                           />
                           <button
-                            onClick={() => handleDeleteImage(url)}
-                            className="absolute top-2 right-2 bg-red-600 text-white rounded-full w-7 h-7 flex items-center justify-center text-sm opacity-0 group-hover:opacity-100 transition shadow-md hover:bg-red-700"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteImage(url);
+                            }}
+                            className="absolute top-2 right-2 bg-red-600/90 hover:bg-red-700 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm shadow opacity-0 group-hover:opacity-100 transition-opacity"
                           >
                             ✕
                           </button>
@@ -415,6 +444,28 @@ export default function Profile() {
           )}
         </div>
       </main>
+
+      {/* Large Image Modal */}
+      {selectedImage && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
+          onClick={closeLargeImage}
+        >
+          <div className="relative max-w-4xl max-h-[90vh] p-4">
+            <img
+              src={selectedImage}
+              alt="Large view"
+              className="max-w-full max-h-[85vh] object-contain rounded-xl shadow-2xl ring-4 ring-white/20"
+            />
+            <button
+              onClick={closeLargeImage}
+              className="absolute top-4 right-4 bg-white/90 hover:bg-white text-gray-800 rounded-full w-12 h-12 flex items-center justify-center text-3xl shadow-xl transition hover:scale-110"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
