@@ -1,14 +1,9 @@
 // components/Payment.jsx
 import React, { useState } from "react";
 import { loadStripe } from "@stripe/stripe-js";
-import {
-  Elements,
-  CardElement,
-  useStripe,
-  useElements,
-} from "@stripe/react-stripe-js";
+import { Elements, CardElement, useStripe, useElements } from "@stripe/react-stripe-js";
 
-// Hardcoded publishable key (sandbox)
+// Hardcoded Stripe test publishable key
 const stripePromise = loadStripe(
   "pk_test_51SVdYfCPqWok7xUbvcckNxRl6mP0Tg2W2QGjGuyN9onWBPgrBVGqngvUFHbD5NvPDLVk6soVbM36gRlHUXNLdZSQ00VoZWxU1A"
 );
@@ -22,7 +17,6 @@ const CheckoutForm = ({ amount, bookingId }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
     if (!stripe || !elements) return;
     if (!cardComplete) {
       setMessage("Please complete your card details.");
@@ -33,7 +27,7 @@ const CheckoutForm = ({ amount, bookingId }) => {
     setMessage("");
 
     try {
-      // 1️⃣ Create PaymentIntent on backend
+      // Create PaymentIntent on backend
       const res = await fetch(
         "https://car4wash-back.vercel.app/api/stripe/create-payment-intent",
         {
@@ -55,18 +49,16 @@ const CheckoutForm = ({ amount, bookingId }) => {
         return;
       }
 
-      // 2️⃣ Confirm Card Payment
+      // Confirm card payment
       const result = await stripe.confirmCardPayment(clientSecret, {
         payment_method: {
           card: elements.getElement(CardElement),
         },
       });
 
-      if (result.error) {
-        setMessage(result.error.message);
-      } else if (result.paymentIntent?.status === "succeeded") {
+      if (result.error) setMessage(result.error.message);
+      else if (result.paymentIntent?.status === "succeeded")
         setMessage("Payment successful! ✅");
-      }
     } catch (err) {
       console.error(err);
       setMessage("Payment failed. ❌");
@@ -87,8 +79,7 @@ const CheckoutForm = ({ amount, bookingId }) => {
         }}
         onChange={(e) => {
           setCardComplete(e.complete);
-          if (e.error) setMessage(e.error.message);
-          else setMessage("");
+          setMessage(e.error ? e.error.message : "");
         }}
       />
 
@@ -105,12 +96,10 @@ const CheckoutForm = ({ amount, bookingId }) => {
   );
 };
 
-const Payment = ({ amount, bookingId }) => {
-  return (
-    <Elements stripe={stripePromise}>
-      <CheckoutForm amount={amount} bookingId={bookingId} />
-    </Elements>
-  );
-};
+const Payment = ({ amount, bookingId }) => (
+  <Elements stripe={stripePromise}>
+    <CheckoutForm amount={amount} bookingId={bookingId} />
+  </Elements>
+);
 
 export default Payment;
