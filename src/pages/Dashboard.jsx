@@ -278,17 +278,6 @@ export default function Dashboard() {
                 </p>
               )}
 
-              {isOwnerOrAdmin(b) && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDelete(b._id);
-                  }}
-                  className="mt-3 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-xl text-sm font-medium transition"
-                >
-                  Delete
-                </button>
-              )}
             </div>
           ))}
         </aside>

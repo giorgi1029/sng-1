@@ -199,6 +199,37 @@ export default function Profile() {
     }
   };
 
+  const handleDeleteCarwash = async () => {
+  if (!window.confirm("Are you sure you want to delete your account? This cannot be undone.")) return;
+
+  try {
+    const token = localStorage.getItem("token");
+    if (!token) throw new Error("No authentication token found");
+
+    const res = await fetch(
+      "https://car4wash-back.vercel.app/api/carwash/auth/delete",
+      {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(errData.message || "Failed to delete account");
+    }
+
+    alert("Your account has been deleted.");
+    localStorage.clear();
+    navigate("/login");
+  } catch (err) {
+    console.error("[DELETE ACCOUNT ERROR]", err);
+    alert(err.message || "Could not delete account");
+  }
+};
   const handleDeleteImage = async (url) => {
     if (!window.confirm("Delete this photo?")) return;
 
@@ -439,6 +470,14 @@ export default function Profile() {
                 >
                   Logout
                 </button>
+                  {isCarwash && (
+    <button
+      onClick={handleDeleteCarwash}
+      className="px-8 py-3 bg-red-800 text-white rounded-xl hover:bg-red-900 transition font-medium"
+    >
+      Delete Account
+    </button>
+  )}
               </div>
             </div>
           )}
