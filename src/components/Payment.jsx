@@ -1,30 +1,19 @@
-// components/Payment.jsx
-import React, { useState, useEffect } from "react";
-import { loadStripe } from "@stripe/stripe-js";
-import {
-  Elements,
-  CardElement,
-  useStripe,
-  useElements,
-} from "@stripe/react-stripe-js";
-
-// Load your publishable key (from Stripe dashboard)
-const stripePromise = loadStripe("pk_test_51MZ6Y2SDD3K3hYx1zYk3Vh3bJ6jFz8Yz7Q9Z1X9Z1X9Z1X9Z1X9Z1X9Z1X9Z1X9Z1");
-
 const CheckoutForm = ({ amount, bookingId }) => {
   const stripe = useStripe();
   const elements = useElements();
+
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
+  const [cardComplete, setCardComplete] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!stripe || !elements) return;
+    if (!stripe || !elements || !cardComplete) return;
 
     setLoading(true);
+    setMessage("");
 
     try {
-      // 1️⃣ Create PaymentIntent on backend
       const res = await fetch(
         "https://car4wash-back.vercel.app/api/stripe/create-payment-intent",
         {
@@ -37,10 +26,8 @@ const CheckoutForm = ({ amount, bookingId }) => {
         }
       );
 
-      const data = await res.json();
-      const clientSecret = data.clientSecret;
+      const { clientSecret } = await res.json();
 
-      // 2️⃣ Confirm Card Payment
       const result = await stripe.confirmCardPayment(clientSecret, {
         payment_method: {
           card: elements.getElement(CardElement),
@@ -52,8 +39,7 @@ const CheckoutForm = ({ amount, bookingId }) => {
       } else if (result.paymentIntent.status === "succeeded") {
         setMessage("Payment successful! ✅");
       }
-    } catch (err) {
-      console.error(err);
+    } catch {
       setMessage("Payment failed. ❌");
     }
 
@@ -62,25 +48,23 @@ const CheckoutForm = ({ amount, bookingId }) => {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <CardElement className="p-2 border rounded-xl" />
+      <CardElement
+        className="p-3 border rounded-xl"
+        onChange={(e) => {
+          setCardComplete(e.complete);
+          if (e.error) setMessage(e.error.message);
+        }}
+      />
+
       <button
         type="submit"
-        disabled={!stripe || loading}
-        className="px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700"
+        disabled={!stripe || loading || !cardComplete}
+        className="px-4 py-2 bg-blue-600 text-white rounded-xl disabled:opacity-50"
       >
         {loading ? "Processing..." : `Pay $${amount}`}
       </button>
-      {message && <p>{message}</p>}
+
+      {message && <p className="text-sm text-red-600">{message}</p>}
     </form>
   );
 };
-
-const Payment = ({ amount, bookingId }) => {
-  return (
-    <Elements stripe={stripePromise}>
-      <CheckoutForm amount={amount} bookingId={bookingId} />
-    </Elements>
-  );
-};
-
-export default Payment;
