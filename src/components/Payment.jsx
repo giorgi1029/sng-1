@@ -9,7 +9,7 @@ import {
 } from "@stripe/react-stripe-js";
 
 // Load your publishable key (from Stripe dashboard)
-const stripePromise = loadStripe("YOUR_STRIPE_PUBLISHABLE_KEY");
+const stripePromise = loadStripe("pk_test_51MZ6Y2SDD3K3hYx1zYk3Vh3bJ6jFz8Yz7Q9Z1X9Z1X9Z1X9Z1X9Z1X9Z1X9Z1X9Z1");
 
 const CheckoutForm = ({ amount, bookingId }) => {
   const stripe = useStripe();
@@ -26,7 +26,7 @@ const CheckoutForm = ({ amount, bookingId }) => {
     try {
       // 1️⃣ Create PaymentIntent on backend
       const res = await fetch(
-        "https://car4wash-back.vercel.app/api/payments/create-payment-intent",
+        "https://car4wash-back.vercel.app/api/stripe/create-payment-intent",
         {
           method: "POST",
           headers: {
