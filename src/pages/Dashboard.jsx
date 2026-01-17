@@ -227,6 +227,7 @@ export default function Dashboard() {
         </section>
 
         {/* ===== LIST ===== */}
+
       <aside className="w-[420px] max-h-[90vh] backdrop-blur-xl bg-white/70 p-5 overflow-y-auto rounded-3xl shadow-xl border border-white/60">
 
   <h2 className="text-2xl font-bold mb-6 text-indigo-700">
@@ -296,6 +297,61 @@ export default function Dashboard() {
   </div>
 </aside>
 
+
+        <aside className="w-[420px] bg-gray-200 p-4 overflow-y-auto rounded-3xl">
+          <h2 className="text-xl font-bold mb-4">All Carwashes</h2>
+
+          {/* Filters */}
+          <div className="space-y-3 mb-6">
+            <input
+              className="w-full p-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
+              placeholder="Search by name or address"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+            <input
+              className="w-full p-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
+              placeholder="Service (e.g. Interior wash)"
+              value={serviceFilter}
+              onChange={(e) => setServiceFilter(e.target.value)}
+            />
+            <input
+              className="w-full p-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
+              type="number"
+              placeholder="Max price (GEL)"
+              value={maxPrice}
+              onChange={(e) => setMaxPrice(e.target.value)}
+            />
+          </div>
+
+          {loading && (
+            <p className="text-center text-gray-500">Loading profile & data...</p>
+          )}
+
+          {!loading && filteredBusinesses.length === 0 && (
+            <p className="text-center text-gray-500">No carwashes found</p>
+          )}
+
+          {filteredBusinesses.map((b) => (
+            <div
+              key={b._id}
+              onClick={() => navigate(`/carwash/${b._id}`)}
+              className="bg-white p-4 rounded-2xl mb-4 shadow cursor-pointer hover:shadow-lg hover:scale-[1.01] transition"
+            >
+              <h3 className="font-bold text-lg">{b.businessName}</h3>
+              <p className="text-sm text-gray-600 mb-2">
+                {b.location?.address || "No address"}
+              </p>
+
+              {b.services?.length > 0 && (
+                <p className="text-sm text-gray-500">
+                  Services: {b.services.length}
+                </p>
+              )}
+
+            </div>
+          ))}
+        </aside>
       </main>
     </div>
   );
