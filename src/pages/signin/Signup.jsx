@@ -1,14 +1,10 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import BusinessForm from "./BusinessForm";
-import Cookies from "js-cookie";
 
 export default function SignUp() {
   const [activeTab, setActiveTab] = useState("user");
   const navigate = useNavigate();
-
-
-
 
   const [errorMessage, setErrorMessage] = useState("");
 
@@ -25,7 +21,7 @@ export default function SignUp() {
 
   const handleUserSubmit = async (e) => {
     e.preventDefault();
-    setErrorMessage(""); // clear previous error
+    setErrorMessage("");
 
     try {
       const res = await fetch(
@@ -50,7 +46,8 @@ export default function SignUp() {
         return;
       }
 
-      
+      localStorage.setItem("token", data.token);
+      localStorage.setItem("user", JSON.stringify(data.user)); // optional
       navigate("/dashboard");
     } catch (error) {
       console.error(error);
@@ -99,14 +96,12 @@ export default function SignUp() {
         {activeTab === "user" ? (
           <form className="space-y-4" onSubmit={handleUserSubmit}>
             
-            {/* Error message */}
             {errorMessage && (
               <div className="bg-red-100 border border-red-300 text-red-700 px-3 py-2 rounded-lg text-sm mb-3">
                 {errorMessage}
               </div>
             )}
 
-            {/* User inputs */}
             <input
               type="text"
               name="name"
@@ -153,7 +148,6 @@ export default function SignUp() {
               Sign Up
             </button>
 
-            {/* Login / Google */}
             <div className="flex flex-col items-center gap-3 mt-4">
               <div className="text-gray-700 text-sm">
                 Have an account?{" "}
@@ -183,7 +177,6 @@ export default function SignUp() {
           </form>
         ) : (
           <BusinessForm />
-       
         )}
       </div>
     </div>

@@ -2,121 +2,122 @@ import React from "react";
 import { useNavigate } from "react-router-dom";
 
 export default function LandingPage() {
-const navigate = useNavigate();
+  const navigate = useNavigate();
 
-const goToSignUp = () => {
-navigate("/signup");
-};
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-sky-50 to-indigo-100">
 
-const scrollToFeatures = () => {
-const element = document.getElementById("features");
-if (element) {
-element.scrollIntoView({ behavior: "smooth" });
+      {/* HERO */}
+      <header className="relative bg-gradient-to-br from-indigo-800 via-indigo-700 to-cyan-600 text-white py-36 px-6 text-center overflow-hidden">
+        <div className="absolute inset-0 bg-black/20"></div>
+
+        <h1 className="relative z-10 text-6xl md:text-7xl font-extrabold tracking-tight">
+          Spotless
+        </h1>
+
+        <p className="relative z-10 mt-6 max-w-3xl mx-auto text-xl md:text-2xl text-white/90">
+          The easiest way to book professional car washes or grow your car wash business online.
+        </p>
+
+        <div className="relative z-10 mt-12 flex flex-col sm:flex-row justify-center gap-5">
+          <button
+            onClick={() => navigate("/signup")}
+            className="bg-white text-indigo-700 px-9 py-4 rounded-2xl font-bold shadow-xl hover:scale-105 transition"
+          >
+            Book a Car Wash
+          </button>
+
+          <button
+            onClick={() => navigate("/signup")}
+            className="border border-white/70 px-9 py-4 rounded-2xl font-semibold hover:bg-white/20 transition"
+          >
+            Register Your Business
+          </button>
+        </div>
+      </header>
+
+      {/* IMAGE SECTION */}
+      <section className="py-24 px-6">
+        <div className="max-w-9xl mx-auto grid md:grid-cols-2 gap-14 items-center">
+          
+          <img
+            src="https://images.contentstack.io/v3/assets/blt62d40591b3650da3/bltee515d46b1b13f83/658ee585d082f768b425faf9/hero_PN1305_HowOftenWashCar_Header-1.jpg"
+            alt="Car wash"
+            className="rounded-3xl shadow-2xl"
+          />
+
+          <div>
+            <h2 className="text-4xl font-bold text-indigo-800 mb-6">
+              Premium Car Wash Experience
+            </h2>
+            <p className="text-gray-600 text-lg mb-4">
+              Spotless connects customers with trusted car wash services nearby.
+              From quick exterior washes to full detailing, everything is just a few clicks away.
+            </p>
+            <p className="text-gray-600 text-lg">
+              Businesses get powerful tools to manage bookings, payments, and customers — all in one platform.
+            </p>
+          </div>
+
+        </div>
+      </section>
+
+      {/* HOW IT WORKS */}
+      <section className="py-28 bg-white px-6">
+        <h2 className="text-4xl font-bold text-center text-indigo-700 mb-20">
+          How It Works
+        </h2>
+
+        <div className="max-w-6xl mx-auto grid md:grid-cols-3 gap-12 text-center">
+
+          <div className="p-8 rounded-3xl bg-indigo-50 shadow-lg">
+            <h3 className="text-2xl font-bold text-indigo-700 mb-3">1. Choose Service</h3>
+            <p className="text-gray-600">
+              Select nearby car washes, compare prices, and choose your service.
+            </p>
+          </div>
+
+          <div className="p-8 rounded-3xl bg-indigo-50 shadow-lg">
+            <h3 className="text-2xl font-bold text-indigo-700 mb-3">2. Book & Pay</h3>
+            <p className="text-gray-600">
+              Book instantly and pay securely through our platform.
+            </p>
+          </div>
+
+          <div className="p-8 rounded-3xl bg-indigo-50 shadow-lg">
+            <h3 className="text-2xl font-bold text-indigo-700 mb-3">3. Get Spotless</h3>
+            <p className="text-gray-600">
+              Arrive or relax — your car will be cleaned professionally.
+            </p>
+          </div>
+
+        </div>
+      </section>
+
+ 
+
+      {/* BUSINESS CTA */}
+      <section className="py-24 px-6 bg-gradient-to-r from-indigo-700 to-cyan-600 text-white text-center">
+        <h2 className="text-4xl font-bold mb-4">
+          Own a Car Wash Business?
+        </h2>
+        <p className="text-lg mb-10 text-white/90">
+          Reach more customers, manage bookings, and grow faster with Spotless.
+        </p>
+
+        <button
+          onClick={() => navigate("/signup")}
+          className="bg-white text-indigo-700 px-10 py-4 rounded-2xl font-semibold shadow-xl hover:scale-105 transition"
+        >
+          Register Your Business
+        </button>
+      </section>
+
+      {/* FOOTER */}
+      <footer className="py-6 text-center text-gray-500 bg-white">
+        © {new Date().getFullYear()} Spotless. All rights reserved.
+      </footer>
+
+    </div>
+  );
 }
-};
-
-return ( <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-50 via-white to-blue-100 overflow-x-hidden">
-
-  {/* HERO */}
-  <header className="relative flex flex-col items-center justify-center text-center py-32 px-6 overflow-hidden bg-gradient-to-br from-blue-400 via-blue-500 to-blue-600 text-white">
-
-    {/* Animated background shapes */}
-    <div className="absolute top-0 left-[-100px] w-[400px] h-[400px] rounded-full bg-white/20 blur-[100px] animate-pulse-slow"></div>
-    <div className="absolute bottom-0 right-[-120px] w-[500px] h-[500px] rounded-full bg-white/30 blur-[150px] animate-pulse-slow"></div>
-
-    {/* Main content */}
-    <h1 className="relative z-10 text-6xl md:text-7xl font-extrabold drop-shadow-lg leading-tight">
-      Spotless
-    </h1>
-    <p className="relative z-10 text-xl md:text-2xl max-w-3xl mt-6 opacity-90">
-      Instantly book car washes or register your business. Fast, modern, and reliable.
-    </p>
-
-    {/* Buttons */}
-    <div className="relative z-10 flex flex-col sm:flex-row gap-4 mt-12">
-      <button
-        onClick={goToSignUp}
-        className="bg-white text-blue-600 px-8 py-4 rounded-2xl font-bold shadow-lg hover:scale-105 hover:shadow-2xl transition-all duration-300"
-      >
-        Get Started
-      </button>
-      <button
-        onClick={scrollToFeatures}
-        className="border-2 border-white text-white px-8 py-4 rounded-2xl font-semibold hover:bg-white hover:text-blue-600 transition-all duration-300"
-      >
-        Learn More
-      </button>
-    </div>
-
-    {/* Scroll indicator */}
-    <div className="absolute bottom-10 w-full flex justify-center z-10">
-      <span className="block w-3 h-3 rounded-full bg-white animate-bounce"></span>
-    </div>
-  </header>
-
-  {/* FEATURES */}
-  <section id="features" className="py-24 px-6 bg-blue-50">
-    <h2 className="text-4xl font-bold text-center text-blue-700 mb-14">
-      Why Choose Car4wash?
-    </h2>
-
-    <div className="grid md:grid-cols-3 gap-10 max-w-6xl mx-auto">
-
-      {/* Feature Card 1 */}
-      <div className="bg-white/70 backdrop-blur-xl rounded-3xl shadow-xl border border-blue-100 p-8 text-center hover:shadow-2xl hover:-translate-y-1 transition-all duration-300">
-       
-        <h3 className="text-2xl font-bold text-blue-700 mb-3">Fast & Reliable</h3>
-        <p className="text-gray-600">
-          Instantly find and book nearby car wash services with modern UI.
-        </p>
-      </div>
-
-      {/* Feature Card 2 */}
-      <div className="bg-white/70 backdrop-blur-xl rounded-3xl shadow-xl border border-blue-100 p-8 text-center hover:shadow-2xl hover:-translate-y-1 transition-all duration-300">
-      
-        <h3 className="text-2xl font-bold text-blue-700 mb-3">Business Friendly</h3>
-        <p className="text-gray-600">
-          Easily register and manage your car wash business from anywhere.
-        </p>
-      </div>
-
-      {/* Feature Card 3 */}
-      <div className="bg-white/70 backdrop-blur-xl rounded-3xl shadow-xl border border-blue-100 p-8 text-center hover:shadow-2xl hover:-translate-y-1 transition-all duration-300">
-       
-        <h3 className="text-2xl font-bold text-blue-700 mb-3">Secure Payments</h3>
-        <p className="text-gray-600">
-          Smooth and safe transactions for every wash and service.
-        </p>
-      </div>
-
-    </div>
-  </section>
-
-  {/* CALL TO ACTION */}
-  <section className="py-20 px-6 bg-gradient-to-r from-blue-600 to-blue-700 text-white text-center shadow-inner">
-    <h2 className="text-4xl font-bold mb-4">Ready to get started?</h2>
-    <p className="text-lg mb-8 opacity-90">
-      Create your account today and join the future of car wash booking.
-    </p>
-    <button
-      onClick={goToSignUp}
-      className="bg-white text-blue-700 px-8 py-4 rounded-2xl font-semibold shadow-lg hover:shadow-2xl hover:scale-105 transition-all"
-    >
-      Get Started
-    </button>
-  </section>
-
-  {/* FOOTER */}
-  <footer className="py-6 text-center text-gray-600">
-    &copy; {new Date().getFullYear()} Car4wash. All rights reserved.
-  </footer>
-
-  <style>
-    {`
-      .animate-pulse-slow {
-        animation: pulse 6s ease-in-out infinite;
-      }
-    `}
-  </style>
-</div>
-)}

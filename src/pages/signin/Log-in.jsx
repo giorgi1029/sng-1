@@ -1,18 +1,19 @@
-// src/pages/Login.jsx
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import Cookies from 'js-cookie'
+
 export default function Login() {
   const navigate = useNavigate();
   const [loginData, setLoginData] = useState({ email: "", password: "" });
+  const [error, setError] = useState("");
 
   const handleChange = (e) => {
     setLoginData({ ...loginData, [e.target.name]: e.target.value });
   };
 
-
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError("");
+
     try {
       const res = await fetch("https://car4wash-back.vercel.app/api/users/login", {
         method: "POST",
@@ -23,24 +24,31 @@ export default function Login() {
       const data = await res.json();
 
       if (!res.ok) {
-        alert(data.message || "Login failed");
+        setError(data.message || "Login failed");
         return;
       }
 
-      Cookies.set('token', data.token); // save JWT
-      navigate("/dashboard"); // redirect to dashboard
+      localStorage.setItem("token", data.token);
+      localStorage.setItem("user", JSON.stringify(data.user)); // optional – for quick access
+      navigate("/dashboard");
     } catch (err) {
       console.error(err);
-      alert("Something went wrong. Try again.");
+      setError("Something went wrong. Try again.");
     }
   };
 
   return (
     <div className="min-h-screen relative flex flex-col items-center justify-center p-6 bg-gradient-to-br from-white via-[#cae3ff] to-[#89bbf4] overflow-hidden">
-      <h1 className="text-5xl font-extrabold text-gray-900 drop-shadow mb-2">Car4wash</h1>
+      <h1 className="text-5xl font-extrabold text-gray-900 drop-shadow mb-2">Spotless</h1>
       <p className="text-gray-700 text-lg mb-6">Log in to your account</p>
 
       <div className="w-full max-w-md backdrop-blur-xl bg-white/60 border border-white/50 rounded-2xl shadow-xl p-8">
+        {error && (
+          <div className="bg-red-100 border border-red-300 text-red-700 px-4 py-3 rounded mb-4 text-sm">
+            {error}
+          </div>
+        )}
+
         <form className="space-y-4" onSubmit={handleSubmit}>
           <input
             type="email"
@@ -73,7 +81,7 @@ export default function Login() {
             <div className="flex items-center gap-2 text-gray-700 text-sm">
               Or log in with
               <a
-                href="https://car4wash-back.vercel.app/api/auth/login"
+                href="https://car4wash-back.vercel.app/api/auth/google"
                 className="flex items-center gap-2 text-blue-600 font-semibold hover:underline"
               >
                 <img src="https://www.freepnglogos.com/uploads/google-logo-png/google-logo-png-webinar-optimizing-for-success-google-business-webinar-13.png" alt="Google" className="w-6 h-6 pointer-events-none select-none" />
